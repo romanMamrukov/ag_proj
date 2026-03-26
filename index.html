@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AG Games Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            font-family: 'Inter', -apple-system, sans-serif; 
+            background: #0d1117; 
+            color: #c9d1d9; 
+            text-align: center; 
+            padding: 50px; 
+            background-image: radial-gradient(circle at 50% 0%, rgba(88, 166, 255, 0.1), transparent 50%);
+        }
+        .portal-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 { 
+            font-size: 3rem;
+            margin-bottom: 20px; 
+            color: #fff;
+            text-shadow: 0 0 20px rgba(88,166,255,0.4);
+        }
+        .subtitle {
+            color: #8b949e;
+            margin-bottom: 50px;
+            font-size: 1.2rem;
+        }
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 30px;
+        }
+        .game-card { 
+            border: 1px solid rgba(48, 54, 61, 0.5); 
+            padding: 30px; 
+            border-radius: 12px; 
+            background: rgba(22, 27, 34, 0.7); 
+            backdrop-filter: blur(10px);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+            text-align: left;
+            position: relative;
+            overflow: hidden;
+        }
+        .game-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 4px;
+            background: linear-gradient(90deg, #58a6ff, #8a2be2);
+        }
+        .game-card:hover { 
+            transform: translateY(-8px); 
+            border-color: #58a6ff; 
+            box-shadow: 0 15px 30px rgba(0,0,0,0.5), 0 0 20px rgba(88,166,255,0.2);
+        }
+        .game-title {
+            color: #fff;
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            font-weight: 800;
+        }
+        .game-desc {
+            color: #8b949e; 
+            margin-bottom: 25px;
+            line-height: 1.5;
+            font-size: 0.95rem;
+        }
+        .play-btn { 
+            display: inline-block;
+            background: #238636;
+            color: white; 
+            text-decoration: none; 
+            font-weight: bold; 
+            padding: 10px 20px;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+        .play-btn:hover {
+            background: #2ea043;
+        }
+    </style>
+</head>
+<body>
+    <div class="portal-container">
+        <h1>🎮 Game Portal</h1>
+        <p class="subtitle">Select a project to launch below.</p>
+        
+        <div class="game-grid">
+            <div class="game-card">
+                <div class="game-title">Startup Idle Clicker</div>
+                <div class="game-desc">Build a massive software empire from a single line of code, hire developers, launch your IPO, and dominate the tech industry. Features a full prestige system and achievements.</div>
+                <a href="./startup_idle_clicker/index.html" class="play-btn">Play Now ➔</a>
+            </div>
+            
+            <!-- Future games can be appended here -->
+            <div class="game-card" style="opacity:0.5; filter:grayscale(1);">
+                <div class="game-title">Coming Soon...</div>
+                <div class="game-desc">More hyper-casual and deep strategy games will be added to this hub in future updates. Stay tuned!</div>
+                <span class="play-btn" style="background:#444; cursor:not-allowed;">Locked</span>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

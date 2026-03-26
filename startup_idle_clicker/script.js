@@ -389,7 +389,19 @@ function updateDisplay() {
         adActiveTag.style.display = 'none';
     }
 
+    updateMiniMap();
     checkAchievements();
+}
+
+function updateMiniMap() {
+    let html = '';
+    for (const [id, info] of Object.entries(upgradesInfo)) {
+        if (state.upgrades[id].count > 0) {
+            html += `<div class="minimap-item" title="${info.name}"><i class="${info.icon}"></i> ${state.upgrades[id].count}</div>`;
+        }
+    }
+    const mm = document.getElementById('mini-map');
+    if (mm) mm.innerHTML = html;
 }
 
 let lastTime = Date.now();

@@ -493,6 +493,33 @@ body {
   100% { transform: translateY(-5px); }
 }
 
+/* MINI MAP SUMMARY */
+.mini-map-container {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 1.5rem;
+  max-width: 95%;
+}
+
+.minimap-item {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border-color);
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.minimap-item i {
+  color: var(--accent-color);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .app-container {
@@ -503,29 +530,54 @@ body {
   
   .app-header {
     height: 50px;
+    padding: 0 1rem;
   }
   
   .header-title {
-    font-size: 1rem;
+    font-size: 0.95rem;
+    max-width: 130px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   
   .header-btn {
-    padding: 0.4rem 0.6rem;
-    font-size: 0.85rem;
+    padding: 0.4rem;
+    font-size: 0.95rem;
+  }
+
+  .header-btn span {
+    display: none; /* Hide text to save space, rely on icons */
   }
 
   .clicker-section {
     padding: 1rem;
-    flex: 0 0 45vh;
+    flex: 0 0 35vh; /* Massive reduction from 45vh */
+  }
+  
+  .stats-container {
+    margin-bottom: 1rem; /* Eliminated 4rem gap */
   }
   
   .code-count {
     font-size: 3.5rem;
   }
+
+  .cps-count {
+    font-size: 1rem;
+  }
   
   .main-button {
-    width: 180px;
-    height: 180px;
+    width: 140px;
+    height: 140px;
+  }
+  
+  .main-button i {
+    font-size: 55px;
+  }
+
+  .mini-map-container {
+    margin-top: 1rem;
   }
   
   .upgrades-section {
@@ -533,5 +585,28 @@ body {
     flex: 1;
     border-left: none;
     border-top: 1px solid var(--border-color);
+    padding: 1rem;
+  }
+  
+  .upgrade-item {
+    padding: 0.8rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .upgrade-info h3 {
+    font-size: 1.05rem;
+    margin-bottom: 0px;
+  }
+
+  .upgrade-info p {
+    display: none; /* Hide descriptive text on mobile completely to squish cards */
+  }
+  
+  .cost-amount {
+    font-size: 0.9rem;
+  }
+
+  .owned-amount {
+    font-size: 1.25rem;
   }
 }

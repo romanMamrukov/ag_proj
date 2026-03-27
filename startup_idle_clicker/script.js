@@ -1,8 +1,35 @@
 // ==========================================
-// GAME STATE
+// SUPABASE & GAME STATE
 // ==========================================
+const supabaseUrl = 'https://buzexmhklqhkpsrgysfq.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ1emV4bWhrbHFoa3Bzcmd5c2ZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1NDAzODYsImV4cCI6MjA5MDExNjM4Nn0.gQQg4A53lJOO-mRb_mmkBjGW-QfTDrrE98_d329WF6U';
+const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+async function syncScoreboard() {
+    if ((state.stockOptions || 0) > 0 && state.companyName) {
+        try {
+            const { data } = await supabaseClient.from('leaderboard').select('stock_options').eq('company_name', state.companyName).limit(1);
+            if (data && data.length > 0) {
+                if (state.stockOptions > data[0].stock_options) {
+                    await supabaseClient.from('leaderboard').update({ stock_options: state.stockOptions }).eq('company_name', state.companyName);
+                }
+            } else {
+                await supabaseClient.from('leaderboard').insert([{ company_name: state.companyName, stock_options: state.stockOptions }]);
+            }
+        } catch(e) {}
+    }
+}
+
+function formatNumber(num) {
+    if (num < 1000) return Math.floor(num).toString();
+    const suffixes = ["", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"];
+    const suffixIndex = Math.floor(Math.log10(Math.max(1, num)) / 3);
+    const shortValue = num / Math.pow(1000, suffixIndex);
+    return shortValue.toFixed(2).replace(/\.00$/, '') + suffixes[suffixIndex];
+}
+
 let state = {
-    companyName: "", // NEW: Branding
+    companyName: "",
     code: 0,
     totalClicks: 0,
     runCode: 0, 
@@ -11,7 +38,7 @@ let state = {
     lastSaveTime: Date.now(),
     adMultiplier: 1, 
     adMultiplierEndTime: 0,
-    clickUpgrades: { // NEW: Permanent Click Scalers
+    clickUpgrades: {
         mechKeyboard: { purchased: false, name: "Mechanical Keyboard", desc: "+10% Click Power", cost: 500, mult: 1.10, icon: "fas fa-keyboard" },
         ergonomicChair: { purchased: false, name: "Ergonomic Chair", desc: "+25% Click Power", cost: 5000, mult: 1.25, icon: "fas fa-chair" },
         energyDrinkFr: { purchased: false, name: "Energy Drink Fridge", desc: "+50% Click Power", cost: 25000, mult: 1.50, icon: "fas fa-bolt" }
@@ -35,20 +62,16 @@ const upgradesInfo = {
 
 const achievementsData = [
     { id: 'click_1', name: "Hello World", desc: "Write your first line of code.", threshold: 1, type: 'code' },
-    { id: 'code_1k', name: "Getting Started", desc: "Accumulate 1,000 lines.", threshold: 1000, type: 'code' },
-    { id: 'code_1m', name: "Millionaire", desc: "Accumulate 1,000,000 lines.", threshold: 1000000, type: 'code' },
-    { id: 'code_100m', name: "Superstar", desc: "Accumulate 100,000,000 lines.", threshold: 100000000, type: 'code' },
-    { id: 'code_1b', name: "Billionaire", desc: "Accumulate 1,000,000,000 lines.", threshold: 1000000000, type: 'code' },
-    
+    { id: 'code_1k', name: "Getting Started", desc: "Accumulate 1K lines.", threshold: 1000, type: 'code' },
+    { id: 'code_1m', name: "Millionaire", desc: "Accumulate 1M lines.", threshold: 1000000, type: 'code' },
+    { id: 'code_1b', name: "Billionaire", desc: "Accumulate 1B lines.", threshold: 1000000000, type: 'code' },
     { id: 'intern_10', name: "Coffee Run", desc: "Hire 10 Interns.", threshold: 10, type: 'building', target: 'intern' },
     { id: 'intern_50', name: "Sweatshop", desc: "Hire 50 Interns.", threshold: 50, type: 'building', target: 'intern' },
     { id: 'junior_25', name: "StackOverflow DDoS", desc: "Hire 25 Junior Devs.", threshold: 25, type: 'building', target: 'junior' },
     { id: 'senior_10', name: "Brain Trust", desc: "Hire 10 Senior Devs.", threshold: 10, type: 'building', target: 'senior' },
     { id: 'datacenter', name: "Cloud Native", desc: "Deploy your first Data Center.", threshold: 1, type: 'building', target: 'datacenter' },
-    
     { id: 'ipo_1', name: "Early Exit", desc: "Launch an IPO and prestige.", threshold: 1, type: 'prestige' },
-    { id: 'ipo_100', name: "Serial Entrepreneur", desc: "Acquire 100 Stock Options.", threshold: 100, type: 'prestige' },
-    { id: 'ipo_1000', name: "Market Dominator", desc: "Acquire 1,000 Stock Options.", threshold: 1000, type: 'prestige' }
+    { id: 'ipo_100', name: "Serial Entrepreneur", desc: "Acquire 100 Stock Options.", threshold: 100, type: 'prestige' }
 ];
 
 // ==========================================
@@ -57,31 +80,27 @@ const achievementsData = [
 const codeDisplay = document.getElementById('code-count');
 const cpsDisplay = document.getElementById('cps-count');
 const mainButton = document.getElementById('main-button');
-const upgradesContainer = document.getElementById('upgrades-container');
-const ipoContainer = document.getElementById('ipo-container');
-const clickArea = document.getElementById('click-area');
 const rewardedBtn = document.getElementById('rewarded-ad-btn');
 const adActiveTag = document.getElementById('ad-active-tag');
 const companyNameDisplay = document.getElementById('company-name-display');
 
-// Header & Modals
 const btnTrophies = document.getElementById('btn-trophies');
 const btnSettings = document.getElementById('btn-settings');
 const btnLeaderboard = document.getElementById('btn-leaderboard');
+const btnStore = document.getElementById('btn-store');
+
 const modalOverlay = document.getElementById('modal-overlay');
 const modalClose = document.getElementById('modal-close');
 const modalTitle = document.getElementById('modal-title');
 const modalBody = document.getElementById('modal-body');
 
-let bugTimer = Math.random() * 60000 + 40000; 
+let bugTimer = Math.random() * 40000 + 30000; 
 
 // ==========================================
 // INITIALIZATION
 // ==========================================
 function init() {
     loadGame();
-    
-    // First time setup
     if (!state.companyName || state.companyName === "") {
         let n = prompt("Welcome CEO! What is the name of your new Tech Startup?");
         state.companyName = n && n.trim() !== "" ? n.trim() : "Untitled Corp";
@@ -90,9 +109,7 @@ function init() {
     companyNameDisplay.innerHTML = `<i class="fas fa-terminal"></i> ${state.companyName}`;
 
     calculateOfflineProgress();
-    renderUpgrades();
     updateDisplay();
-    
     setInterval(gameLoop, 1000 / 30);
     setInterval(saveGame, 10000);
 }
@@ -101,22 +118,18 @@ function init() {
 // CORE MECHANICS
 // ==========================================
 function getClickPower() {
-    // Dynamic Scaler
     let baseClick = 1 + (getCPS() * 0.05); 
-    // Permanent Upgrades
     for (const key in state.clickUpgrades) {
         if (state.clickUpgrades[key].purchased) {
             baseClick *= state.clickUpgrades[key].mult;
         }
     }
-    // Prestige Multiplier
     let prestigeMultiplier = 1 + ((state.stockOptions || 0) * 0.10);
     return baseClick * state.adMultiplier * prestigeMultiplier;
 }
 
 mainButton.addEventListener('pointerdown', (e) => {
     e.preventDefault(); 
-    
     let clickPower = getClickPower();
     state.code += clickPower;
     state.runCode = (state.runCode || 0) + clickPower;
@@ -126,7 +139,7 @@ mainButton.addEventListener('pointerdown', (e) => {
     const x = (e.clientX !== undefined) ? e.clientX : (rect.left + rect.width / 2);
     const y = (e.clientY !== undefined) ? e.clientY : (rect.top + rect.height / 2);
 
-    createFloatingText(x, y, `+${Math.floor(clickPower)}`);
+    createFloatingText(x, y, `+${formatNumber(clickPower)}`);
     updateDisplay();
 });
 
@@ -156,12 +169,11 @@ function getCPS() {
     return cps * state.adMultiplier * prestigeMultiplier;
 }
 
-function buyUpgrade(upgradeId) {
+window.buyUpgrade = function(upgradeId) {
     const cost = getCost(upgradeId);
     if (state.code >= cost) {
         state.code -= cost;
         state.upgrades[upgradeId].count++;
-        renderUpgrades();
         updateDisplay();
     }
 }
@@ -171,24 +183,34 @@ window.buyClickUpgrade = function(upgradeId) {
     if (!upgrade.purchased && state.code >= upgrade.cost) {
         state.code -= upgrade.cost;
         upgrade.purchased = true;
-        renderUpgrades();
         updateDisplay();
     }
 }
 
 // ==========================================
-// RANDOM EVENT (Golden Bug)
+// RANDOM EVENT
 // ==========================================
-function spawnBug() {
+function spawnEvent() {
+    const isBad = Math.random() > 0.6; // 40% chance of a BAD event
     const bug = document.createElement('div');
     bug.className = 'golden-bug';
-    bug.innerHTML = '<i class="fas fa-bug"></i>';
-    bug.style.top = Math.random() * 70 + 15 + '%';
+    
+    if(isBad) {
+        bug.innerHTML = '<i class="fas fa-server"></i>';
+        bug.style.color = "#da3633";
+        bug.style.textShadow = "0 0 15px rgba(218, 54, 51, 0.8)";
+    } else {
+        bug.innerHTML = '<i class="fas fa-bug"></i>';
+        bug.style.color = "gold";
+    }
+
+    bug.style.top = Math.random() * 60 + 15 + '%';
     bug.style.left = '-100px';
     document.body.appendChild(bug);
 
     let pos = -100;
     let speed = Math.random() * 2 + 1.5; 
+    let missed = true;
 
     const interval = setInterval(() => {
         pos += speed;
@@ -196,19 +218,33 @@ function spawnBug() {
         if (pos > window.innerWidth + 100) {
             if(bug && bug.parentNode) bug.remove();
             clearInterval(interval);
+            
+            // PENALTY IF MISSED
+            if (isBad && missed) {
+                const penalty = Math.min((state.code / 2), Math.max(10, getCPS() * 60));
+                if (penalty > 0) {
+                    state.code -= penalty;
+                    showToast("Server Crashed!", `You ignored the failing server and lost ${formatNumber(penalty)} code!`, "fas fa-fire");
+                    updateDisplay();
+                }
+            }
         }
     }, 20);
 
     bug.addEventListener('pointerdown', (e) => {
         e.stopPropagation();
         e.preventDefault();
+        missed = false; // Successfully caught
         
-        const reward = Math.max(getCPS() * 120, 100); 
-        state.code += reward;
-        state.runCode += reward;
-        
-        showToast("Bug Squashed!", `You salvaged ${Math.floor(reward).toLocaleString()} lines of code!`, "fas fa-medal");
-        createFloatingText(e.clientX, e.clientY, `+${Math.floor(reward).toLocaleString()}`);
+        if (isBad) {
+            showToast("Crisis Averted!", "You successfully rebooted the failing server.", "fas fa-shield-alt");
+        } else {
+            const reward = Math.max(getCPS() * 120, 100); 
+            state.code += reward;
+            state.runCode += reward;
+            showToast("Bug Squashed!", `You salvaged ${formatNumber(reward)} lines of code!`, "fas fa-medal");
+            createFloatingText(e.clientX, e.clientY, `+${formatNumber(reward)}`);
+        }
         
         bug.style.transform = "scale(2)";
         bug.style.opacity = "0";
@@ -222,7 +258,7 @@ function spawnBug() {
 // PRESTIGE & ACHIEVEMENTS
 // ==========================================
 window.doPrestige = function(earnedOptions) {
-    if (confirm(`Are you sure you want to Launch your IPO?\n\nYou will sell your startup, losing all current Code and Developers, but gain ${earnedOptions} Stock Options which permanently increase all production by ${earnedOptions * 10}%.`)) {
+    if (confirm(`Are you sure you want to Launch your IPO?\n\nYou will sell your startup, losing all Code and Developers, but gain ${formatNumber(earnedOptions)} Stock Options which permanently increase all production by ${formatNumber(earnedOptions * 10)}%.`)) {
         state.stockOptions = (state.stockOptions || 0) + earnedOptions;
         state.code = 0;
         state.runCode = 0; 
@@ -230,12 +266,12 @@ window.doPrestige = function(earnedOptions) {
              state.upgrades[key].count = 0; 
         }
         for (let key in state.clickUpgrades) {
-             state.clickUpgrades[key].purchased = false; // Reset click upgrades
+             state.clickUpgrades[key].purchased = false; 
         }
-        showToast("IPO Successful!", `You acquired ${earnedOptions} Stock Options!`, "fas fa-star");
+        showToast("IPO Successful!", `You acquired ${formatNumber(earnedOptions)} Stock Options!`, "fas fa-star");
         saveGame();
-        renderUpgrades();
         updateDisplay();
+        modalOverlay.style.display = 'none';
     }
 }
 
@@ -250,7 +286,6 @@ function showToast(title, desc, icon="fas fa-trophy") {
         </div>
     `;
     document.body.appendChild(toast);
-    
     setTimeout(() => toast.classList.add('show'), 10);
     setTimeout(() => {
         toast.classList.remove('show');
@@ -267,7 +302,6 @@ function checkAchievements() {
             if (ach.type === 'code' && (state.runCode || 0) >= ach.threshold) unlocked = true;
             if (ach.type === 'building' && state.upgrades[ach.target].count >= ach.threshold) unlocked = true;
             if (ach.type === 'prestige' && (state.stockOptions || 0) >= ach.threshold) unlocked = true;
-            
             if (unlocked) {
                 state.unlockedAchievements.push(ach.id);
                 showToast("Achievement Unlocked!", ach.name);
@@ -283,97 +317,78 @@ function checkAchievements() {
 // ==========================================
 // RENDER & UPDATE
 // ==========================================
-function renderUpgrades() {
-    upgradesContainer.innerHTML = '';
+function renderStore() {
+    if (modalOverlay.style.display !== 'flex' || modalTitle.innerText !== 'Operations Store') return;
+    let html = '';
     
-    // 1. One Time Click Upgrades
+    if (!state.runCode) state.runCode = state.code;
+    const optionsEarned = Math.floor(Math.sqrt(state.runCode / 25000)); 
+    if (optionsEarned >= 1) {
+        html += `
+            <div class="upgrade-item prestige-btn" onclick="doPrestige(${optionsEarned})" style="margin-bottom:15px;">
+                <div class="upgrade-info" style="width: 100%; text-align: center;">
+                    <h3 style="color: gold; margin-bottom: 5px;"><i class="fas fa-rocket"></i> Launch IPO (Prestige)</h3>
+                    <p style="margin:0; font-size:0.9rem;">Sell the company for <strong style="color:#fff;">${formatNumber(optionsEarned)} Stock Options</strong>!</p>
+                </div>
+            </div>
+        `;
+    }
+
     for (const [id, upgrade] of Object.entries(state.clickUpgrades || {})) {
         if (!upgrade.purchased) {
             const canAfford = state.code >= upgrade.cost;
-            const div = document.createElement('div');
-            div.className = `upgrade-item ${canAfford ? '' : 'disabled'}`;
-            div.style.borderColor = "var(--success-color)";
-            div.onclick = () => canAfford && buyClickUpgrade(id);
-            div.innerHTML = `
-                <div class="upgrade-info" style="width:100%;">
-                    <h3 style="color:var(--success-color);"><i class="${upgrade.icon}" style="width:24px; text-align:center; margin-right:8px;"></i>${upgrade.name}</h3>
-                    <p>${upgrade.desc} (Permanent)</p>
-                    <div style="text-align:right;"><span class="cost-amount" style="background:rgba(63, 185, 80, 0.1); color:var(--success-color);"><i class="fas fa-code"></i> ${upgrade.cost.toLocaleString()}</span></div>
+            html += `
+                <div class="upgrade-item ${canAfford ? '' : 'disabled'}" style="border-color:var(--success-color); margin-bottom:10px;" onclick="if(${canAfford}) buyClickUpgrade('${id}')">
+                    <div class="upgrade-info" style="width:100%;">
+                        <h3 style="color:var(--success-color); margin-bottom:5px;"><i class="${upgrade.icon}" style="width:24px; text-align:center; margin-right:8px;"></i>${upgrade.name}</h3>
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-size:0.85rem; color:var(--text-muted);">${upgrade.desc} (Perm)</span>
+                            <span class="cost-amount" style="background:rgba(63, 185, 80, 0.1); color:var(--success-color);"><i class="fas fa-code"></i> Cost: ${formatNumber(upgrade.cost)}</span>
+                        </div>
+                    </div>
                 </div>
             `;
-            upgradesContainer.appendChild(div);
         }
     }
 
-    // 2. Generators
     for (const [id, info] of Object.entries(upgradesInfo)) {
         const upgrade = state.upgrades[id];
         const cost = getCost(id);
         const canAfford = state.code >= cost;
-        
-        const div = document.createElement('div');
-        div.className = `upgrade-item ${canAfford ? '' : 'disabled'}`;
-        div.onclick = () => canAfford && buyUpgrade(id);
-        
         let prestigeMultiplier = 1 + ((state.stockOptions || 0) * 0.10);
         let currentProd = upgrade.baseProduction * state.adMultiplier * prestigeMultiplier;
 
-        div.innerHTML = `
-            <div class="upgrade-info">
-                <h3><i class="${info.icon}" style="width:24px; text-align:center; margin-right:8px;"></i>${info.name}</h3>
-                <p>+${currentProd.toLocaleString()} lines/sec</p>
-                <span class="cost-amount"><i class="fas fa-code"></i> ${cost.toLocaleString()}</span>
+        html += `
+        <div class="upgrade-item ${canAfford ? '' : 'disabled'}" style="margin-bottom:10px;" onclick="if(${canAfford}) buyUpgrade('${id}')">
+            <div class="upgrade-info" style="flex:1;">
+                <h3 style="margin-bottom:5px;"><i class="${info.icon}" style="width:24px; text-align:center; margin-right:8px;"></i>${info.name}</h3>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-size:0.85rem; color:var(--text-muted);">+${formatNumber(currentProd)}/s</span>
+                    <span class="cost-amount" style="background:rgba(255, 255, 255, 0.1);"><i class="fas fa-code"></i> Cost: ${formatNumber(cost)}</span>
+                </div>
             </div>
-            <div class="owned-amount">${upgrade.count}</div>
-        `;
-        upgradesContainer.appendChild(div);
+            <div class="owned-amount" style="margin-left:15px; font-weight:bold; font-size:1.5rem; color:var(--accent-color);">${formatNumber(upgrade.count)}</div>
+        </div>`;
     }
+    modalBody.innerHTML = html;
+}
+
+function updateMiniMap() {
+    let html = '';
+    for (const [id, info] of Object.entries(upgradesInfo)) {
+        if (state.upgrades[id].count > 0) {
+            html += `<div class="minimap-item" title="${info.name}"><i class="${info.icon}"></i> ${formatNumber(state.upgrades[id].count)}</div>`;
+        }
+    }
+    const mm = document.getElementById('mini-map');
+    if (mm) mm.innerHTML = html;
 }
 
 function updateDisplay() {
-    codeDisplay.innerText = Math.floor(state.code).toLocaleString();
+    codeDisplay.innerText = formatNumber(state.code);
+    let textBonus = state.stockOptions > 0 ? `<br><span style="font-size:0.75rem; color:gold;"><i class="fas fa-rocket"></i> +${formatNumber(state.stockOptions*10)}% IPO Bonus Active</span>` : '';
+    cpsDisplay.innerHTML = `${formatNumber(getCPS())} lines / second` + textBonus;
     
-    let textBonus = state.stockOptions > 0 ? `<br><span style="font-size:0.75rem; color:gold;"><i class="fas fa-rocket"></i> +${(state.stockOptions*10)}% IPO Bonus Active</span>` : '';
-    cpsDisplay.innerHTML = `${getCPS().toLocaleString()} lines / second` + textBonus;
-    
-    // We re-render full upgrades only if absolutely necessary, else we just toggle .disabled classes
-    // Note: Since Click Upgrades pop in and out, if someone affords one, we can just strip .disabled.
-    // Buying one re-renders everything. So we are fine just iterating children.
-    const upgradeItems = upgradesContainer.children;
-    for (let div of upgradeItems) {
-        // parse the cost from the elements
-        const costEl = div.querySelector('.cost-amount');
-        if (costEl) {
-            const num = parseInt(costEl.innerText.replace(/,/g, ''), 10);
-            if (!isNaN(num)) {
-                if (state.code >= num) {
-                    div.classList.remove('disabled');
-                } else {
-                    div.classList.add('disabled');
-                }
-            }
-        }
-    }
-
-    if (!state.runCode) state.runCode = state.code;
-    const optionsEarned = Math.floor(Math.sqrt(state.runCode / 25000)); 
-    
-    if (window.currentPrestigeOptions !== optionsEarned) {
-        window.currentPrestigeOptions = optionsEarned;
-        if (optionsEarned >= 1) {
-            ipoContainer.innerHTML = `
-                <div class="upgrade-item prestige-btn" onclick="doPrestige(${optionsEarned})">
-                    <div class="upgrade-info" style="width: 100%; text-align: center;">
-                        <h3 style="color: gold; margin-bottom: 5px;"><i class="fas fa-rocket"></i> Launch IPO (Prestige)</h3>
-                        <p>Sell the company for <strong style="color:#fff; font-size:1.1rem; text-shadow: 0 0 5px gold;">${optionsEarned} Stock Options</strong>!</p>
-                    </div>
-                </div>
-            `;
-        } else {
-            ipoContainer.innerHTML = '';
-        }
-    }
-
     if (state.adMultiplierEndTime > Date.now()) {
         state.adMultiplier = 2;
         rewardedBtn.style.display = 'none';
@@ -383,25 +398,15 @@ function updateDisplay() {
     } else {
         if(state.adMultiplier !== 1) {
             state.adMultiplier = 1;
-            renderUpgrades(); 
+            renderStore(); 
         }
-        rewardedBtn.style.display = 'flex';
+        rewardedBtn.style.display = 'block';
         adActiveTag.style.display = 'none';
     }
 
     updateMiniMap();
+    renderStore();
     checkAchievements();
-}
-
-function updateMiniMap() {
-    let html = '';
-    for (const [id, info] of Object.entries(upgradesInfo)) {
-        if (state.upgrades[id].count > 0) {
-            html += `<div class="minimap-item" title="${info.name}"><i class="${info.icon}"></i> ${state.upgrades[id].count}</div>`;
-        }
-    }
-    const mm = document.getElementById('mini-map');
-    if (mm) mm.innerHTML = html;
 }
 
 let lastTime = Date.now();
@@ -409,7 +414,6 @@ function gameLoop() {
     const now = Date.now();
     const dt = (now - lastTime) / 1000;
     lastTime = now;
-    
     const cps = getCPS();
     if (cps > 0) {
         let added = cps * dt;
@@ -417,11 +421,10 @@ function gameLoop() {
         state.runCode = (state.runCode || 0) + added;
         updateDisplay();
     }
-    
     bugTimer -= dt * 1000;
     if (bugTimer <= 0) {
-        spawnBug();
-        bugTimer = Math.random() * 60000 + 40000; 
+        spawnEvent();
+        bugTimer = Math.random() * 40000 + 30000; 
     }
 }
 
@@ -431,6 +434,7 @@ function gameLoop() {
 function saveGame() {
     state.lastSaveTime = Date.now();
     localStorage.setItem('startupClickerSave', JSON.stringify(state));
+    syncScoreboard();
 }
 
 function loadGame() {
@@ -462,14 +466,13 @@ function calculateOfflineProgress() {
     const now = Date.now();
     const dt = (now - state.lastSaveTime) / 1000;
     const cappedDt = Math.min(dt, 86400); 
-    
     const cps = getCPS();
     if (cps > 0 && cappedDt > 10) { 
         const offlineGains = cps * cappedDt;
         state.code += offlineGains;
         state.runCode = (state.runCode || 0) + offlineGains;
         setTimeout(() => {
-            alert(`Welcome back to ${state.companyName}!\n\nWhile you were away, your team wrote ${Math.floor(offlineGains).toLocaleString()} lines of code!`);
+            alert(`Welcome back to ${state.companyName}!\n\nWhile you were away, your team wrote ${formatNumber(Math.floor(offlineGains))} lines of code!`);
         }, 500);
     }
     state.lastSaveTime = now;
@@ -485,18 +488,22 @@ function openModal(title, internalHTML) {
 }
 modalClose.addEventListener('click', () => modalOverlay.style.display = 'none');
 
-// 1. Settings (File blobs)
+btnStore.addEventListener('click', () => {
+    openModal("Operations Store", `<div style="text-align:center; padding: 20px;"><i class="fas fa-spinner fa-spin"></i></div>`);
+    renderStore();
+});
+
 btnSettings.addEventListener('click', () => {
     let html = `
         <div style="display:flex; flex-direction:column; gap: 15px;">
-            <p style="color:var(--text-muted);">Manage your game configuration and save files natively.</p>
+            <p style="color:var(--text-muted); font-size:0.95rem;">Manage your game configuration and save files natively.</p>
             <div style="display:flex; gap: 10px;">
-                <button onclick="exportSaveUI()" class="header-btn" style="flex:1; background:#238636; border:none; color:white; padding:10px;"><i class="fas fa-download"></i> Save to File</button>
-                <button onclick="importSaveUI()" class="header-btn" style="flex:1; background:#1f6feb; border:none; color:white; padding:10px;"><i class="fas fa-upload"></i> Load File</button>
+                <button onclick="exportSaveUI()" class="header-btn" style="flex:1; background:#238636; border:none; color:white; padding:12px; font-weight:bold;"><i class="fas fa-download"></i> Save to File</button>
+                <button onclick="importSaveUI()" class="header-btn" style="flex:1; background:#1f6feb; border:none; color:white; padding:12px; font-weight:bold;"><i class="fas fa-upload"></i> Load File</button>
             </div>
             <p id="save-msg" style="color:var(--success-color); font-size:0.9rem; text-align:center; height:15px; margin:0;"></p>
             <hr style="border-color:var(--border-color); margin: 5px 0;">
-            <button onclick="hardReset()" class="rewarded-ad-btn" style="background:#da3633; border:none; padding:10px;"><i class="fas fa-skull"></i> Hard Reset (Wipe All)</button>
+            <button onclick="hardReset()" class="rewarded-ad-btn" style="background:#da3633; border:none; padding:12px; font-size:1rem;"><i class="fas fa-skull"></i> Hard Reset (Wipe All)</button>
         </div>
     `;
     openModal("Settings", html);
@@ -515,11 +522,9 @@ window.exportSaveUI = function() {
     document.getElementById('save-msg').innerText = "Game file generated and downloaded!";
     document.getElementById('save-msg').style.color = "var(--success-color)";
 }
-
 window.importSaveUI = function() {
     document.getElementById('file-import').click();
 }
-
 window.handleFileImport = function(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -533,7 +538,7 @@ window.handleFileImport = function(event) {
             document.getElementById('save-msg').style.color = "var(--success-color)";
             setTimeout(() => location.reload(), 500);
         } catch (err) {
-            document.getElementById('save-msg').innerText = "Invalid or Corrupted JSON file!";
+            document.getElementById('save-msg').innerText = "Invalid JSON file!";
             document.getElementById('save-msg').style.color = "#da3633";
         }
     };
@@ -547,58 +552,71 @@ window.hardReset = function() {
     }
 }
 
-// 2. Leaderboard Mock (Local Only)
-btnLeaderboard.addEventListener('click', () => {
-    let html = `
-        <div style="text-align:center;">
-            <p style="color:var(--text-muted); margin-bottom:20px; line-height:1.4;">Top Stock Options Acquired<br><span style="font-size:0.8rem;">(Currently shows Local Runs offline metrics.<br>Firebase Global Online Scoreboard integration required to populate Global data).</span></p>
-            <div style="background:rgba(0,0,0,0.3); border:1px solid var(--border-color); border-radius:8px; padding:20px; text-align:left;">
-                <div style="display:flex; justify-content:space-between; border-bottom:1px solid #30363d; padding-bottom:10px; margin-bottom:15px; font-weight:bold; color:#fff;">
-                    <span style="flex:1;">Rank</span>
-                    <span style="flex:2;">Company</span>
-                    <span style="flex:1; text-align:right;">Options</span>
-                </div>
-                <div style="display:flex; justify-content:space-between; padding:5px 0;">
-                    <span style="color:gold; flex:1;"><i class="fas fa-crown"></i> 1st</span>
-                    <span style="flex:2;">${state.companyName || 'You'}</span>
-                    <span style="color:gold; flex:1; text-align:right;">${(state.stockOptions || 0).toLocaleString()}</span>
-                </div>
-                <div style="display:flex; justify-content:space-between; padding:5px 0; color:#8b949e;">
-                    <span style="flex:1;">2nd</span>
-                    <span style="flex:2;">Macrohard Inc</span>
-                    <span style="flex:1; text-align:right;">4,500</span>
-                </div>
-                <div style="display:flex; justify-content:space-between; padding:5px 0; color:#8b949e;">
-                    <span style="flex:1;">3rd</span>
-                    <span style="flex:2;">Pied Piper</span>
-                    <span style="flex:1; text-align:right;">1,200</span>
-                </div>
-                <div style="display:flex; justify-content:space-between; padding:5px 0; color:#8b949e;">
-                    <span style="flex:1;">4th</span>
-                    <span style="flex:2;">Initech</span>
-                    <span style="flex:1; text-align:right;">400</span>
+// Global Leaderboard (Supabase)
+btnLeaderboard.addEventListener('click', async () => {
+    openModal("Global Leaderboard", `
+        <div style="text-align:center; padding: 40px 20px;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 2.5rem; color: var(--accent-color);"></i>
+            <p style="margin-top: 15px; color:var(--text-muted); font-size:1.1rem;">Connecting to Supabase...</p>
+        </div>
+    `);
+
+    try {
+        const { data, error } = await supabaseClient.from('leaderboard').select('company_name, stock_options').order('stock_options', { ascending: false }).limit(10);
+        if (error) throw error;
+
+        let ranksHtml = '';
+        if (data && data.length > 0) {
+            data.forEach((row, index) => {
+                let isMe = (row.company_name === state.companyName);
+                let color = index === 0 ? "gold" : index === 1 ? "silver" : index === 2 ? "#cd7f32" : "#8b949e";
+                let icon = index === 0 ? '<i class="fas fa-crown"></i>' : index === 1 || index === 2 ? '<i class="fas fa-medal"></i>' : '';
+                ranksHtml += `
+                    <div style="display:flex; justify-content:space-between; padding:10px; margin-bottom:5px; color:${isMe ? '#fff' : color}; font-weight:${isMe ? 'bold': 'normal'}; background:${isMe ? 'rgba(88,166,255,0.15)' : 'rgba(0,0,0,0.2)'}; border-radius:6px; font-size:0.95rem;">
+                        <span style="flex:1;">${icon} ${index + 1}</span>
+                        <span style="flex:2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${row.company_name}</span>
+                        <span style="flex:1; text-align:right;">${formatNumber(row.stock_options)}</span>
+                    </div>
+                `;
+            });
+        }
+        openModal("Global Leaderboard", `
+            <div style="text-align:center;">
+                <p style="color:var(--text-muted); margin-bottom:15px; font-size: 0.9rem;">LIVE Global Standings</p>
+                <div style="background:rgba(0,0,0,0.3); border:1px solid var(--border-color); border-radius:12px; padding:15px; text-align:left;">
+                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid #30363d; padding:10px; margin-bottom:10px; font-weight:bold; color:#fff;">
+                        <span style="flex:1;">Rank</span>
+                        <span style="flex:2;">Company</span>
+                        <span style="flex:1; text-align:right;">Options</span>
+                    </div>
+                    ${ranksHtml || '<p style="text-align:center;color:#8b949e;">Empty.</p>'}
                 </div>
             </div>
-        </div>
-    `;
-    openModal("Leaderboard", html);
+        `);
+    } catch (e) {
+        openModal("Global Leaderboard", `
+            <div style="text-align:center; padding: 20px;">
+                <i class="fas fa-exclamation-triangle" style="font-size: 2.5rem; color: #da3633;"></i>
+                <p style="margin-top: 15px; color:#da3633; font-weight:bold; font-size:1.1rem;">Failed to connect.</p>
+            </div>
+        `);
+    }
 });
 
-// 3. Trophies Menu
 btnTrophies.addEventListener('click', () => renderTrophies());
 
 function renderTrophies() {
     let unlk = state.unlockedAchievements.length;
     let tot = achievementsData.length;
-    let html = `<p style="text-align:center; color:gold; margin-bottom:15px;">Completed: ${unlk} / ${tot}</p><div class="trophy-grid" style="max-height:50vh; overflow-y:auto; padding-right:10px;">`;
+    let html = `<p style="text-align:center; font-weight:bold; color:gold; margin-bottom:15px;">Completed: ${unlk} / ${tot}</p><div class="trophy-grid" style="padding-right:5px; padding-bottom:20px;">`;
     for (const ach of achievementsData) {
         const unlocked = state.unlockedAchievements.includes(ach.id);
         html += `
-            <div class="trophy-item ${unlocked ? 'unlocked' : 'locked'}">
+            <div class="trophy-item ${unlocked ? 'unlocked' : 'locked'}" style="margin-bottom:10px;">
                 <div class="trophy-icon"><i class="${unlocked ? 'fas fa-trophy' : 'fas fa-lock'}"></i></div>
                 <div class="trophy-info">
-                    <strong>${unlocked ? ach.name : '???'}</strong>
-                    <p>${unlocked ? ach.desc : 'Keep operating to unlock!'}</p>
+                    <strong style="display:block; margin-bottom:2px; font-size:0.95rem;">${unlocked ? ach.name : '???'}</strong>
+                    <p style="margin:0; font-size:0.8rem;">${unlocked ? ach.desc : 'Keep operating to unlock!'}</p>
                 </div>
             </div>
         `;
@@ -616,10 +634,8 @@ rewardedBtn.addEventListener('click', () => {
         state.adMultiplierEndTime = Date.now() + (10 * 60 * 1000);
         state.adMultiplier = 2;
         updateDisplay();
-        renderUpgrades(); 
         saveGame();
     }
 });
 
-// Init is called here
 init();

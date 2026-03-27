@@ -175,6 +175,7 @@ window.buyUpgrade = function(upgradeId) {
         state.code -= cost;
         state.upgrades[upgradeId].count++;
         updateDisplay();
+        renderStore();
     }
 }
 
@@ -184,6 +185,7 @@ window.buyClickUpgrade = function(upgradeId) {
         state.code -= upgrade.cost;
         upgrade.purchased = true;
         updateDisplay();
+        renderStore();
     }
 }
 
@@ -338,7 +340,7 @@ function renderStore() {
         if (!upgrade.purchased) {
             const canAfford = state.code >= upgrade.cost;
             html += `
-                <div class="upgrade-item ${canAfford ? '' : 'disabled'}" style="border-color:var(--success-color); margin-bottom:10px;" onclick="if(${canAfford}) buyClickUpgrade('${id}')">
+                <div class="upgrade-item ${canAfford ? '' : 'disabled'}" data-cost="${upgrade.cost}" style="border-color:var(--success-color); margin-bottom:10px; cursor:pointer;" onclick="buyClickUpgrade('${id}')">
                     <div class="upgrade-info" style="width:100%;">
                         <h3 style="color:var(--success-color); margin-bottom:5px;"><i class="${upgrade.icon}" style="width:24px; text-align:center; margin-right:8px;"></i>${upgrade.name}</h3>
                         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -359,7 +361,7 @@ function renderStore() {
         let currentProd = upgrade.baseProduction * state.adMultiplier * prestigeMultiplier;
 
         html += `
-        <div class="upgrade-item ${canAfford ? '' : 'disabled'}" style="margin-bottom:10px;" onclick="if(${canAfford}) buyUpgrade('${id}')">
+        <div class="upgrade-item ${canAfford ? '' : 'disabled'}" data-cost="${cost}" style="margin-bottom:10px; cursor:pointer;" onclick="buyUpgrade('${id}')">
             <div class="upgrade-info" style="flex:1;">
                 <h3 style="margin-bottom:5px;"><i class="${info.icon}" style="width:24px; text-align:center; margin-right:8px;"></i>${info.name}</h3>
                 <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -405,8 +407,21 @@ function updateDisplay() {
     }
 
     updateMiniMap();
-    renderStore();
+    updateStoreOpacities();
     checkAchievements();
+}
+
+function updateStoreOpacities() {
+    if (modalOverlay.style.display !== 'flex' || modalTitle.innerText !== 'Operations Store') return;
+    const items = modalBody.querySelectorAll('.upgrade-item');
+    items.forEach(div => {
+        const costStr = div.getAttribute('data-cost');
+        if (costStr) {
+            const cost = parseFloat(costStr);
+            if (state.code >= cost) div.classList.remove('disabled');
+            else div.classList.add('disabled');
+        }
+    });
 }
 
 let lastTime = Date.now();
@@ -486,6 +501,7 @@ function openModal(title, internalHTML) {
     modalBody.innerHTML = internalHTML;
     modalOverlay.style.display = 'flex';
 }
+modalClose.addEventListener('pointerdown', (e) => { e.preventDefault(); modalOverlay.style.display = 'none'; });
 modalClose.addEventListener('click', () => modalOverlay.style.display = 'none');
 
 btnStore.addEventListener('click', () => {

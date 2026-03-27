@@ -8,15 +8,21 @@ const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
 async function syncScoreboard() {
     if ((state.stockOptions || 0) > 0 && state.companyName) {
         try {
-            const { data } = await supabaseClient.from('leaderboard').select('stock_options').eq('company_name', state.companyName).limit(1);
+            const { data, error: fetchErr } = await supabaseClient.from('leaderboard').select('stock_options').eq('company_name', state.companyName).limit(1);
+            if (fetchErr) console.error('Supabase Fetch Error:', fetchErr.message || fetchErr);
+            
             if (data && data.length > 0) {
                 if (state.stockOptions > data[0].stock_options) {
-                    await supabaseClient.from('leaderboard').update({ stock_options: state.stockOptions }).eq('company_name', state.companyName);
+                    const { error: updErr } = await supabaseClient.from('leaderboard').update({ stock_options: state.stockOptions }).eq('company_name', state.companyName);
+                    if (updErr) console.error('Supabase Update Error:', updErr.message || updErr);
                 }
             } else {
-                await supabaseClient.from('leaderboard').insert([{ company_name: state.companyName, stock_options: state.stockOptions }]);
+                const { error: insErr } = await supabaseClient.from('leaderboard').insert([{ company_name: state.companyName, stock_options: state.stockOptions }]);
+                if (insErr) console.error('Supabase Insert Error:', insErr.message || insErr);
             }
-        } catch(e) {}
+        } catch(e) {
+            console.error('Supabase General Error:', e.message || e);
+        }
     }
 }
 
@@ -501,8 +507,16 @@ function openModal(title, internalHTML) {
     modalBody.innerHTML = internalHTML;
     modalOverlay.style.display = 'flex';
 }
-modalClose.addEventListener('pointerdown', (e) => { e.preventDefault(); modalOverlay.style.display = 'none'; });
-modalClose.addEventListener('click', () => modalOverlay.style.display = 'none');
+modalClose.addEventListener('click', (e) => { 
+    e.preventDefault();
+    e.stopPropagation();
+    modalOverlay.style.display = 'none'; 
+});
+modalOverlay.addEventListener('click', (e) => {
+    if (e.target === modalOverlay) {
+        modalOverlay.style.display = 'none';
+    }
+});
 
 btnStore.addEventListener('click', () => {
     openModal("Operations Store", `<div style="text-align:center; padding: 20px;"><i class="fas fa-spinner fa-spin"></i></div>`);
@@ -622,7 +636,7 @@ btnLeaderboard.addEventListener('click', async () => {
 btnTrophies.addEventListener('click', () => renderTrophies());
 
 function renderTrophies() {
-    let unlk = state.unlockedAchievements.length;
+    let unlk = state.unlockedAchievements.filter(id => achievementsData.some(a => a.id === id)).length;
     let tot = achievementsData.length;
     let html = `<p style="text-align:center; font-weight:bold; color:gold; margin-bottom:15px;">Completed: ${unlk} / ${tot}</p><div class="trophy-grid" style="padding-right:5px; padding-bottom:20px;">`;
     for (const ach of achievementsData) {

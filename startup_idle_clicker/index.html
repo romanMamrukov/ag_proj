@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Startup Idle Clicker</title>
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1398972486404954" crossorigin="anonymous"></script>
+    <script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
     <meta name="description" content="Build your tech startup empire from a single line of code!">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -25,33 +25,35 @@
 
 <div class="app-container" style="justify-content:center;">
     <!-- Clicker Main Display (Full Screen Centered) -->
-    <main class="clicker-section" id="click-area" style="flex:1; max-width:600px; border-right:none; display:flex; flex-direction:column; justify-content:center; padding:1rem; min-height:85vh;">
+    <main class="clicker-section" id="click-area" style="flex:1; max-width:500px; border-right:none; display:flex; flex-direction:column; justify-content:space-between; padding:1rem 1rem 0.5rem 1rem;">
         
-        <div class="stats-container" style="margin-bottom:20px;">
-            <h1 class="code-count" id="code-count" style="font-size:clamp(3rem, 12vw, 5.5rem); letter-spacing:-1px;">0</h1>
-            <div class="cps-count"><span id="cps-count" style="font-size:1.1rem;">0 lines / second</span></div>
-        </div>
-        
-        <div class="main-button-container" style="margin-bottom:10px;">
-            <div class="main-button" id="main-button">
-                <i class="fas fa-laptop-code"></i>
+        <div class="top-content" style="flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center;">
+            <div class="stats-container" style="margin-bottom:10px;">
+                <h1 class="code-count" id="code-count" style="font-size:clamp(2.5rem, 8vw, 4.5rem); letter-spacing:-1px; margin:0;">0</h1>
+                <div class="cps-count"><span id="cps-count" style="font-size:1rem;">0 lines / second</span></div>
             </div>
-        </div>
-        
-        <div id="mini-map" class="mini-map-container" style="margin-bottom:20px;"></div>
-
-        <div style="display:flex; flex-direction:column; gap:12px;">
-            <button id="btn-store" style="width:100%; background:var(--accent-color); color:white; border:none; border-radius:12px; padding:18px; font-size:1.2rem; font-weight:bold; cursor:pointer; box-shadow:0 10px 20px rgba(0,0,0,0.3); transition:transform 0.1s;">
-                <i class="fas fa-shopping-cart"></i> Recruit & Upgrades
-            </button>
-            <button id="rewarded-ad-btn" class="rewarded-ad-btn" style="width:100%; margin:0; padding:18px; font-size:1.1rem; border-radius:12px;">
-                <i class="fas fa-video"></i> Watch Ad for 2x Boost!
-            </button>
-            <div class="ad-active-tag" id="ad-active-tag" style="margin-top:10px;"></div>
+            
+            <div class="main-button-container" style="margin-bottom:10px;">
+                <div class="main-button" id="main-button">
+                    <i class="fas fa-laptop-code"></i>
+                </div>
+            </div>
+            
+            <div id="mini-map" class="mini-map-container" style="margin-bottom:10px;"></div>
         </div>
 
-        <div class="ad-banner" style="margin-top:30px;">
-            <span>[ Ad Placement Bottom ]</span>
+        <div class="bottom-controls" style="width:100%; flex-shrink:0;">
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                <button id="btn-store" style="width:100%; background:var(--accent-color); color:white; border:none; border-radius:12px; padding:12px; font-size:1.1rem; font-weight:bold; cursor:pointer; box-shadow:0 8px 15px rgba(0,0,0,0.3); transition:transform 0.1s;">
+                    <i class="fas fa-shopping-cart"></i> Recruit & Upgrades
+                </button>
+                <button id="rewarded-ad-btn" class="rewarded-ad-btn" style="width:100%; margin:0; padding:12px; font-size:1rem; border-radius:12px;">
+                    <i class="fas fa-video"></i> Watch Ad for 2x Boost!
+                </button>
+                <div class="ad-active-tag" id="ad-active-tag" style="margin-top:5px;"></div>
+            </div>
+
+
         </div>
     </main>
 </div>

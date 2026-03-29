@@ -41,6 +41,7 @@ let state = {
     runCode: 0, 
     stockOptions: 0, 
     unlockedAchievements: [], 
+    tutorialComplete: false,
     lastSaveTime: Date.now(),
     adMultiplier: 1, 
     adMultiplierEndTime: 0,
@@ -54,7 +55,9 @@ let state = {
         junior: { count: 0, baseCost: 100, costMultiplier: 1.15, baseProduction: 5 },
         senior: { count: 0, baseCost: 1100, costMultiplier: 1.15, baseProduction: 50 },
         ai: { count: 0, baseCost: 12000, costMultiplier: 1.15, baseProduction: 400 },
-        datacenter: { count: 0, baseCost: 130000, costMultiplier: 1.15, baseProduction: 2500 }
+        datacenter: { count: 0, baseCost: 130000, costMultiplier: 1.15, baseProduction: 2500 },
+        quantum: { count: 0, baseCost: 1500000000, costMultiplier: 1.15, baseProduction: 18000 },
+        vcfirm: { count: 0, baseCost: 45000000000, costMultiplier: 1.15, baseProduction: 120000 }
     }
 };
 
@@ -63,7 +66,9 @@ const upgradesInfo = {
     junior: { name: "Junior Dev", desc: "Copy-pastes from StackOverflow.", icon: "fas fa-user-tie" },
     senior: { name: "Senior Dev", desc: "Actually understands the architecture.", icon: "fas fa-laptop-code" },
     ai: { name: "AI Assistant", desc: "Writes code faster than humans.", icon: "fas fa-robot" },
-    datacenter: { name: "Data Center", desc: "Compiles code instantly.", icon: "fas fa-server" }
+    datacenter: { name: "Data Center", desc: "Compiles code instantly.", icon: "fas fa-server" },
+    quantum: { name: "Quantum Computer", desc: "Calculates every possible bug instantly.", icon: "fas fa-microchip" },
+    vcfirm: { name: "VC Firm", desc: "Acquires smaller startups for automated code injection.", icon: "fas fa-building" }
 };
 
 const achievementsData = [
@@ -76,6 +81,8 @@ const achievementsData = [
     { id: 'junior_25', name: "StackOverflow DDoS", desc: "Hire 25 Junior Devs.", threshold: 25, type: 'building', target: 'junior' },
     { id: 'senior_10', name: "Brain Trust", desc: "Hire 10 Senior Devs.", threshold: 10, type: 'building', target: 'senior' },
     { id: 'datacenter', name: "Cloud Native", desc: "Deploy your first Data Center.", threshold: 1, type: 'building', target: 'datacenter' },
+    { id: 'quantum', name: "Superposition", desc: "Deploy your first Quantum Computer.", threshold: 1, type: 'building', target: 'quantum' },
+    { id: 'vcfirm', name: "Unicorn Status", desc: "Found a VC Firm.", threshold: 1, type: 'building', target: 'vcfirm' },
     { id: 'ipo_1', name: "Early Exit", desc: "Launch an IPO and prestige.", threshold: 1, type: 'prestige' },
     { id: 'ipo_100', name: "Serial Entrepreneur", desc: "Acquire 100 Stock Options.", threshold: 100, type: 'prestige' }
 ];
@@ -121,8 +128,155 @@ function init() {
 }
 
 // ==========================================
-// CORE MECHANICS
+// CORE MECHANICS & AUDIO
 // ==========================================
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+const audioCtx = new AudioContext();
+let noiseBuffer = null;
+function createNoiseBuffer() {
+    if (!audioCtx) return null;
+    const bufferSize = audioCtx.sampleRate * 2;
+    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+    return buffer;
+}
+let isAmbientLoopRunning = false;
+function manageAmbientAudio() {
+    if(!audioCtx || audioCtx.state !== 'running') return;
+    
+    let totalEmployees = 0;
+    for (const key in state.upgrades) {
+        if(key !== 'datacenter' && key !== 'quantum' && key !== 'vcfirm') {
+            totalEmployees += state.upgrades[key].count;
+        }
+    }
+    
+    if (totalEmployees === 0) {
+        setTimeout(manageAmbientAudio, 1000);
+        return;
+    }
+    
+    let interval = Math.max(30, 1500 - (totalEmployees * 15));
+    const isMech = state.clickUpgrades && state.clickUpgrades.mechKeyboard && state.clickUpgrades.mechKeyboard.purchased;
+    
+    playSound(isMech ? 'ambient_mech' : 'ambient_click');
+    
+    let jitter = interval + (Math.random() * interval * 0.4 - interval * 0.2);
+    setTimeout(manageAmbientAudio, jitter);
+}
+
+function playSound(type) {
+    if(!audioCtx) return;
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+    if(!isAmbientLoopRunning && audioCtx.state === 'running' && !type.includes('ambient')) {
+        isAmbientLoopRunning = true;
+        manageAmbientAudio();
+    }
+
+    const gainNode = audioCtx.createGain();
+    gainNode.connect(audioCtx.destination);
+
+    if (type.includes('click') || type.includes('mech')) {
+        if (!noiseBuffer) noiseBuffer = createNoiseBuffer();
+        const noiseSource = audioCtx.createBufferSource();
+        noiseSource.buffer = noiseBuffer;
+        const filter = audioCtx.createBiquadFilter();
+        
+        const volMult = type.includes('ambient') ? 0.15 : 1.0;
+        
+        if (type.includes('mech')) {
+            filter.type = 'lowpass'; filter.frequency.value = 1000;
+            gainNode.gain.setValueAtTime(0.6 * volMult, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
+            noiseSource.connect(filter); filter.connect(gainNode);
+            noiseSource.start(); noiseSource.stop(audioCtx.currentTime + 0.1);
+            
+            const osc = audioCtx.createOscillator(); osc.type = 'sine';
+            osc.frequency.setValueAtTime(120, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.05);
+            const oscGain = audioCtx.createGain();
+            oscGain.gain.setValueAtTime(0.4 * volMult, audioCtx.currentTime);
+            oscGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+            osc.connect(oscGain); oscGain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.05);
+        } else {
+            filter.type = 'highpass'; filter.frequency.value = 1500;
+            gainNode.gain.setValueAtTime(0.3 * volMult, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.06);
+            noiseSource.connect(filter); filter.connect(gainNode);
+            noiseSource.start(); noiseSource.stop(audioCtx.currentTime + 0.06);
+            
+            const osc = audioCtx.createOscillator(); osc.type = 'square';
+            osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.03);
+            const oscGain = audioCtx.createGain();
+            oscGain.gain.setValueAtTime(0.05 * volMult, audioCtx.currentTime);
+            oscGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.04);
+            osc.connect(oscGain); oscGain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.04);
+        }
+        return;
+    }
+    
+    const osc = audioCtx.createOscillator();
+    osc.connect(gainNode);
+    if (type === 'buy') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(600, audioCtx.currentTime + 0.1);
+        gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+    } else if (type === 'achievement') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+        osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1);
+        osc.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.2);
+        osc.frequency.setValueAtTime(1046.50, audioCtx.currentTime + 0.3);
+        gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.05, audioCtx.currentTime + 0.05);
+        gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime + 0.3);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.8);
+    } else if (type === 'error' || type === 'event_missed') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(50, audioCtx.currentTime + 0.4);
+        gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.4);
+        
+        let delTime = audioCtx.currentTime;
+        for(let i=0; i<5; i++) {
+            if (!noiseBuffer) noiseBuffer = createNoiseBuffer();
+            const nSrc = audioCtx.createBufferSource();
+            nSrc.buffer = noiseBuffer;
+            const f = audioCtx.createBiquadFilter();
+            f.type = 'highpass'; f.frequency.value = 2000;
+            const g = audioCtx.createGain();
+            g.gain.setValueAtTime(0.3, delTime);
+            g.gain.exponentialRampToValueAtTime(0.01, delTime + 0.05);
+            nSrc.connect(f); f.connect(g); g.connect(audioCtx.destination);
+            nSrc.start(delTime); nSrc.stop(delTime + 0.05);
+            delTime += 0.08;
+        }
+    } else if (type === 'event_spawn') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(440, audioCtx.currentTime + 0.3);
+        gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+    } else if (type === 'event_caught') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(1760, audioCtx.currentTime + 0.2);
+        gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+        osc.start(); osc.stop(audioCtx.currentTime + 0.4);
+    }
+}
 function getClickPower() {
     let baseClick = 1 + (getCPS() * 0.05); 
     for (const key in state.clickUpgrades) {
@@ -136,6 +290,11 @@ function getClickPower() {
 
 mainButton.addEventListener('pointerdown', (e) => {
     e.preventDefault(); 
+    if (state.clickUpgrades && state.clickUpgrades.mechKeyboard && state.clickUpgrades.mechKeyboard.purchased) {
+        playSound('mech');
+    } else {
+        playSound('click');
+    }
     let clickPower = getClickPower();
     state.code += clickPower;
     state.runCode = (state.runCode || 0) + clickPower;
@@ -178,6 +337,7 @@ function getCPS() {
 window.buyUpgrade = function(upgradeId) {
     const cost = getCost(upgradeId);
     if (state.code >= cost) {
+        playSound('buy');
         state.code -= cost;
         state.upgrades[upgradeId].count++;
         updateDisplay();
@@ -188,6 +348,7 @@ window.buyUpgrade = function(upgradeId) {
 window.buyClickUpgrade = function(upgradeId) {
     const upgrade = state.clickUpgrades[upgradeId];
     if (!upgrade.purchased && state.code >= upgrade.cost) {
+        playSound('buy');
         state.code -= upgrade.cost;
         upgrade.purchased = true;
         updateDisplay();
@@ -199,6 +360,7 @@ window.buyClickUpgrade = function(upgradeId) {
 // RANDOM EVENT
 // ==========================================
 function spawnEvent() {
+    playSound('event_spawn');
     const isBad = Math.random() > 0.6; // 40% chance of a BAD event
     const bug = document.createElement('div');
     bug.className = 'golden-bug';
@@ -212,7 +374,8 @@ function spawnEvent() {
         bug.style.color = "gold";
     }
 
-    bug.style.top = Math.random() * 60 + 15 + '%';
+    // Keep bugs in upper/middle area to avoid hiding behind ads and controls
+    bug.style.top = Math.random() * 40 + 20 + '%';
     bug.style.left = '-100px';
     document.body.appendChild(bug);
 
@@ -229,6 +392,7 @@ function spawnEvent() {
             
             // PENALTY IF MISSED
             if (isBad && missed) {
+                playSound('event_missed');
                 const penalty = Math.min((state.code / 2), Math.max(10, getCPS() * 60));
                 if (penalty > 0) {
                     state.code -= penalty;
@@ -243,6 +407,7 @@ function spawnEvent() {
         e.stopPropagation();
         e.preventDefault();
         missed = false; // Successfully caught
+        playSound('event_caught');
         
         if (isBad) {
             showToast("Crisis Averted!", "You successfully rebooted the failing server.", "fas fa-shield-alt");
@@ -311,6 +476,7 @@ function checkAchievements() {
             if (ach.type === 'building' && state.upgrades[ach.target].count >= ach.threshold) unlocked = true;
             if (ach.type === 'prestige' && (state.stockOptions || 0) >= ach.threshold) unlocked = true;
             if (unlocked) {
+                playSound('achievement');
                 state.unlockedAchievements.push(ach.id);
                 showToast("Achievement Unlocked!", ach.name);
                 newlyUnlocked = true;
@@ -415,6 +581,79 @@ function updateDisplay() {
     updateMiniMap();
     updateStoreOpacities();
     checkAchievements();
+    if(!state.tutorialComplete) renderTutorial();
+}
+
+let currentTutorialStep = 0;
+function renderTutorial() {
+    if (state.tutorialComplete) return;
+
+    let tutEl = document.getElementById('tutorial-pointer');
+    if (!tutEl) {
+        tutEl = document.createElement('div');
+        tutEl.id = 'tutorial-pointer';
+        document.body.appendChild(tutEl);
+        
+        const style = document.createElement('style');
+        style.innerHTML = `
+            #tutorial-pointer {
+                position: fixed;
+                background: #58a6ff;
+                color: #fff;
+                padding: 15px 20px;
+                border-radius: 8px;
+                font-weight: bold;
+                font-size: 1.1rem;
+                z-index: 9999;
+                pointer-events: none;
+                box-shadow: 0 0 20px rgba(88, 166, 255, 0.8);
+                animation: bounce 1s infinite alternate;
+                display: none;
+                text-align: center;
+                white-space: nowrap;
+                transform: translateX(-50%);
+            }
+            #tutorial-pointer::after {
+                content: '';
+                position: absolute;
+                bottom: -10px;
+                left: 50%;
+                transform: translateX(-50%);
+                border-width: 10px 10px 0;
+                border-style: solid;
+                border-color: #58a6ff transparent transparent transparent;
+            }
+            @keyframes bounce { 
+                0% { margin-top: 0px; } 
+                100% { margin-top: -15px; } 
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    if (state.totalClicks < 15) {
+        currentTutorialStep = 1;
+        const rect = document.getElementById('main-button').getBoundingClientRect();
+        tutEl.style.display = 'block';
+        tutEl.style.top = (rect.top - 80) + 'px';
+        tutEl.style.left = (rect.left + rect.width / 2) + 'px';
+        tutEl.innerHTML = `Step 1: Click to write 15 lines of code! (${state.totalClicks}/15)`;
+    } else if (state.totalClicks >= 15 && state.upgrades.intern.count === 0) {
+        currentTutorialStep = 2;
+        const rect = document.getElementById('btn-store').getBoundingClientRect();
+        tutEl.style.display = 'block';
+        tutEl.style.left = (rect.left + rect.width / 2) + 'px';
+        tutEl.style.top = (rect.top - 80) + 'px';
+        tutEl.innerHTML = `Step 2: Open Store & hire an Intern!`;
+    } else if (state.upgrades.intern.count > 0 && currentTutorialStep <= 2) {
+        currentTutorialStep = 3;
+        state.tutorialComplete = true;
+        tutEl.style.display = 'block';
+        tutEl.style.top = '100px';
+        tutEl.style.left = '50%';
+        tutEl.innerHTML = `<i class="fas fa-check-circle"></i> Tutorial Complete! Watch for flying server bugs!`;
+        setTimeout(() => { if(tutEl) tutEl.remove(); saveGame(); }, 6000);
+    }
 }
 
 function updateStoreOpacities() {
@@ -526,12 +765,20 @@ btnStore.addEventListener('click', () => {
 btnSettings.addEventListener('click', () => {
     let html = `
         <div style="display:flex; flex-direction:column; gap: 15px;">
-            <p style="color:var(--text-muted); font-size:0.95rem;">Manage your game configuration and save files natively.</p>
+            <p style="color:var(--text-muted); font-size:0.95rem;">Manage your game configuration and save files.</p>
             <div style="display:flex; gap: 10px;">
                 <button onclick="exportSaveUI()" class="header-btn" style="flex:1; background:#238636; border:none; color:white; padding:12px; font-weight:bold;"><i class="fas fa-download"></i> Save to File</button>
                 <button onclick="importSaveUI()" class="header-btn" style="flex:1; background:#1f6feb; border:none; color:white; padding:12px; font-weight:bold;"><i class="fas fa-upload"></i> Load File</button>
             </div>
-            <p id="save-msg" style="color:var(--success-color); font-size:0.9rem; text-align:center; height:15px; margin:0;"></p>
+            
+            <hr style="border-color:var(--border-color); margin: 5px 0;">
+            <p style="color:#fff; font-weight:bold; margin-bottom:0;"><i class="fas fa-cloud"></i> Cloud Sync</p>
+            <div style="display:flex; gap: 10px;">
+                <button onclick="uploadCloudSave()" class="header-btn" style="flex:1; background:#8a2be2; border:none; color:white; padding:12px;"><i class="fas fa-cloud-upload-alt"></i> Upload Cloud Save</button>
+                <button onclick="downloadCloudSavePrompt()" class="header-btn" style="flex:1; background:#58a6ff; border:none; color:white; padding:12px;"><i class="fas fa-cloud-download-alt"></i> Import Code</button>
+            </div>
+            <p id="save-msg" style="color:var(--success-color); font-size:0.9rem; text-align:center; min-height:15px; margin:0;"></p>
+
             <hr style="border-color:var(--border-color); margin: 5px 0;">
             <button onclick="hardReset()" class="rewarded-ad-btn" style="background:#da3633; border:none; padding:12px; font-size:1rem;"><i class="fas fa-skull"></i> Hard Reset (Wipe All)</button>
         </div>
@@ -573,6 +820,54 @@ window.handleFileImport = function(event) {
         }
     };
     reader.readAsText(file);
+}
+
+window.uploadCloudSave = async function() {
+    saveGame();
+    const pin = Math.random().toString(36).substring(2, 6).toUpperCase() + Math.random().toString(36).substring(2, 5).toUpperCase(); // 7 chars
+    const saveObj = JSON.parse(localStorage.getItem('startupClickerSave'));
+    const msgEl = document.getElementById('save-msg');
+    
+    msgEl.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Uploading...`;
+    msgEl.style.color = "var(--success-color)";
+    
+    try {
+        const { error } = await supabaseClient.from('cloud_saves').upsert(
+            { sync_id: pin, save_data: saveObj }, 
+            { onConflict: 'sync_id' }
+        );
+        if (error) throw error;
+        msgEl.innerHTML = `Success! Your Sync Code: <strong style="color:gold; font-size:1.1rem; letter-spacing:1px;">${pin}</strong>`;
+    } catch(err) {
+        msgEl.innerHTML = `Error: Make sure 'cloud_saves' table exists in Supabase.`;
+        msgEl.style.color = "#da3633";
+        console.error(err);
+    }
+}
+
+window.downloadCloudSavePrompt = function() {
+    const pin = prompt("Enter your Cloud Sync Code:");
+    if (!pin) return;
+    downloadCloudSave(pin.trim().toUpperCase());
+}
+
+window.downloadCloudSave = async function(pin) {
+    const msgEl = document.getElementById('save-msg');
+    if(!msgEl) return;
+    msgEl.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Downloading...`;
+    msgEl.style.color = "var(--success-color)";
+    
+    try {
+        const { data, error } = await supabaseClient.from('cloud_saves').select('save_data').eq('sync_id', pin).single();
+        if (error || !data) throw error || new Error("Save not found");
+        
+        localStorage.setItem('startupClickerSave', JSON.stringify(data.save_data));
+        msgEl.innerText = "Cloud Save loaded! Reloading...";
+        setTimeout(() => location.reload(), 1000);
+    } catch(err) {
+        msgEl.innerText = "Error: Invalid PIN or save not found.";
+        msgEl.style.color = "#da3633";
+    }
 }
 
 window.hardReset = function() {
@@ -621,6 +916,11 @@ btnLeaderboard.addEventListener('click', async () => {
                     </div>
                     ${ranksHtml || '<p style="text-align:center;color:#8b949e;">Empty.</p>'}
                 </div>
+                <div style="margin-top: 15px;">
+                    <button onclick="shareScore()" style="width:100%; background:#1da1f2; color:white; border:none; padding:12px; border-radius:8px; font-weight:bold; cursor:pointer;">
+                        <i class="fab fa-twitter"></i> Share High Score
+                    </button>
+                </div>
             </div>
         `);
     } catch (e) {
@@ -659,13 +959,56 @@ function renderTrophies() {
 // MONETIZATION HOOKS
 // ==========================================
 rewardedBtn.addEventListener('click', () => {
-    const adsSDK = confirm("MOCK AD SDK: Watch this 30s ad to DOUBLE your production for 10 minutes?");
+    try {
+        if (window.CrazyGames && window.CrazyGames.SDK) {
+            const callbacks = {
+                adFinished: () => {
+                    if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+                    state.adMultiplierEndTime = Date.now() + (10 * 60 * 1000);
+                    state.adMultiplier = 2;
+                    updateDisplay();
+                    saveGame();
+                    showToast("Boost Activated!", "Production DOUBLED for 10 minutes!", "fas fa-fire");
+                },
+                adError: (error) => {
+                    if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+                    console.warn("CrazyGames SDK Ad Blocked/Failed. Granting fallback boost.", error);
+                    state.adMultiplierEndTime = Date.now() + (10 * 60 * 1000);
+                    state.adMultiplier = 2;
+                    updateDisplay();
+                    saveGame();
+                    showToast("Test Boost Activated!", "Granted Local 2x Boost (SDK Blocked Offline)", "fas fa-vial");
+                },
+                adStarted: () => {
+                    if(audioCtx && audioCtx.state === 'running') audioCtx.suspend();
+                }
+            };
+            window.CrazyGames.SDK.ad.requestAd('rewarded', callbacks);
+        } else {
+            fallbackReward();
+        }
+    } catch(err) {
+        console.warn("SDK Request Error. Falling back.", err);
+        fallbackReward();
+    }
+});
+
+function fallbackReward() {
+    const adsSDK = confirm("MOCK SDK (CrazyGames missing/blocked): Watch this ad to DOUBLE your production?");
     if (adsSDK) {
         state.adMultiplierEndTime = Date.now() + (10 * 60 * 1000);
         state.adMultiplier = 2;
         updateDisplay();
         saveGame();
+        showToast("Boost Activated!", "Production DOUBLED for 10 minutes!", "fas fa-fire");
     }
-});
+}
+
+window.shareScore = function() {
+    const text = `🚀 I just launched my startup "${state.companyName}" with ${formatNumber(state.stockOptions || 0)} Stock Options! Can you beat my high score? Play here: https://idlestartupclicker.online`;
+    navigator.clipboard.writeText(text).then(() => {
+        showToast("Copied to Clipboard!", "Paste it on Twitter or Reddit!", "fas fa-check");
+    });
+}
 
 init();

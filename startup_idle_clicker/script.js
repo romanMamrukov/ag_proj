@@ -36,6 +36,8 @@ function formatNumber(num) {
 
 let state = {
     companyName: "",
+    playerId: "",
+    playtimeSeconds: 0,
     code: 0,
     totalClicks: 0,
     runCode: 0, 
@@ -112,12 +114,84 @@ let bugTimer = Math.random() * 40000 + 30000;
 // ==========================================
 // INITIALIZATION
 // ==========================================
-function init() {
-    loadGame();
-    if (!state.companyName || state.companyName === "") {
+async function promptForCompanyName() {
+    let nameChosen = false;
+    while (!nameChosen) {
         let n = prompt("Welcome CEO! What is the name of your new Tech Startup?");
-        state.companyName = n && n.trim() !== "" ? n.trim() : "Untitled Corp";
+        let chosenName = n && n.trim() !== "" ? n.trim() : "Untitled Corp";
+        
+        const { data, error } = await supabaseClient.from('players').select('company_name').eq('company_name', chosenName).limit(1);
+        
+        if (data && data.length > 0) {
+            let code = prompt(`The name "${chosenName}" is already registered!\nIf this is your company, enter your Cloud Sync Code to recover your data.\nIf not, leave blank to choose a different name.`);
+            if (code && code.trim() !== "") {
+                let success = await window.downloadCloudSave(code.trim().toUpperCase(), true);
+                if (success) {
+                    nameChosen = true;
+                } else {
+                    alert("Invalid Sync Code. Please try a different company name.");
+                }
+            }
+        } else {
+            let newId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : ('10000000-1000-4000-8000-100000000000'.replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)));
+            state.companyName = chosenName;
+            state.playerId = newId;
+            state.playtimeSeconds = 0;
+            await supabaseClient.from('players').insert([{
+                id: state.playerId,
+                company_name: state.companyName,
+                playtime_seconds: 0
+            }]);
+            saveGame();
+            nameChosen = true;
+        }
+    }
+}
+
+async function updatePlayerActivity() {
+    if (state.playerId) {
+        try {
+            await supabaseClient.from('players').update({ last_active: new Date().toISOString() }).eq('id', state.playerId);
+        } catch(e) {}
+    }
+}
+
+async function updatePlaytime() {
+    if (state.playerId) {
+        state.playtimeSeconds = (state.playtimeSeconds || 0) + 60;
+        try {
+            await supabaseClient.from('players').update({ 
+                playtime_seconds: state.playtimeSeconds,
+                last_active: new Date().toISOString()
+            }).eq('id', state.playerId);
+        } catch(e) {}
+    }
+}
+
+async function init() {
+    loadGame();
+    
+    // Legacy User Backend Migration Fix
+    if (state.companyName && state.companyName !== "" && !state.playerId) {
+        state.playerId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : ('10000000-1000-4000-8000-100000000000'.replace(/[018]/g, c => (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)));
+        state.playtimeSeconds = 0;
+        
+        try {
+            await supabaseClient.from('players').insert([{
+                id: state.playerId,
+                company_name: state.companyName,
+                playtime_seconds: 0
+            }]);
+        } catch (e) {
+            console.warn("Could not migrate legacy player to database right now.", e);
+        }
         saveGame();
+    }
+
+    if (!state.companyName || state.companyName === "") {
+        await promptForCompanyName();
+    } else {
+        updatePlayerActivity();
     }
     companyNameDisplay.innerHTML = `<i class="fas fa-terminal"></i> ${state.companyName}`;
 
@@ -125,6 +199,7 @@ function init() {
     updateDisplay();
     setInterval(gameLoop, 1000 / 30);
     setInterval(saveGame, 10000);
+    setInterval(updatePlaytime, 60000);
 }
 
 // ==========================================
@@ -833,7 +908,7 @@ window.uploadCloudSave = async function() {
     
     try {
         const { error } = await supabaseClient.from('cloud_saves').upsert(
-            { sync_id: pin, save_data: saveObj }, 
+            { sync_id: pin, save_data: saveObj, company_name: state.companyName }, 
             { onConflict: 'sync_id' }
         );
         if (error) throw error;
@@ -851,22 +926,31 @@ window.downloadCloudSavePrompt = function() {
     downloadCloudSave(pin.trim().toUpperCase());
 }
 
-window.downloadCloudSave = async function(pin) {
+window.downloadCloudSave = async function(pin, initLoading = false) {
     const msgEl = document.getElementById('save-msg');
-    if(!msgEl) return;
-    msgEl.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Downloading...`;
-    msgEl.style.color = "var(--success-color)";
+    if(msgEl) {
+        msgEl.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Downloading...`;
+        msgEl.style.color = "var(--success-color)";
+    }
     
     try {
         const { data, error } = await supabaseClient.from('cloud_saves').select('save_data').eq('sync_id', pin).single();
         if (error || !data) throw error || new Error("Save not found");
         
         localStorage.setItem('startupClickerSave', JSON.stringify(data.save_data));
-        msgEl.innerText = "Cloud Save loaded! Reloading...";
-        setTimeout(() => location.reload(), 1000);
+        if(msgEl) msgEl.innerText = "Cloud Save loaded! Reloading...";
+        if(initLoading) {
+            loadGame();
+            return true;
+        } else {
+            setTimeout(() => location.reload(), 1000);
+        }
     } catch(err) {
-        msgEl.innerText = "Error: Invalid PIN or save not found.";
-        msgEl.style.color = "#da3633";
+        if(msgEl) {
+            msgEl.innerText = "Error: Invalid PIN or save not found.";
+            msgEl.style.color = "#da3633";
+        }
+        return false;
     }
 }
 

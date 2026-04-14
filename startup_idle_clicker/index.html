@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -10,69 +11,83 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
 
-<!-- Header Navigation -->
-<header class="app-header">
-    <div class="header-title" id="company-name-display"><i class="fas fa-terminal"></i> My Startup</div>
-    <div class="header-controls">
-        <a href="../index.html" class="header-btn" style="text-decoration:none; margin-right:5px; border-color:transparent;" title="Portal"><i class="fas fa-arrow-left"></i> <span>Portal</span></a>
-        <button id="btn-leaderboard" class="header-btn" title="Leaderboard"><i class="fas fa-chart-line"></i> <span>Leaderboard</span></button>
-        <button id="btn-trophies" class="header-btn" title="Trophies"><i class="fas fa-trophy"></i> <span>Trophies</span></button>
-        <button id="btn-settings" class="header-btn" title="Settings"><i class="fas fa-cog"></i> <span>Settings</span></button>
-    </div>
-</header>
+    <!-- Header Navigation -->
+    <header class="app-header">
+        <div class="header-title" id="company-name-display"><i class="fas fa-terminal"></i> My Startup</div>
+        <div class="header-controls">
+            <a href="https://romanmamrukov.github.io/ag_proj/" class="header-btn"
+                style="text-decoration:none; margin-right:5px; border-color:transparent;" title="Portal"><i
+                    class="fas fa-arrow-left"></i> <span>Portal</span></a>
+            <button id="btn-leaderboard" class="header-btn" title="Leaderboard"><i class="fas fa-chart-line"></i>
+                <span>Leaderboard</span></button>
+            <button id="btn-trophies" class="header-btn" title="Trophies"><i class="fas fa-trophy"></i>
+                <span>Trophies</span></button>
+            <button id="btn-settings" class="header-btn" title="Settings"><i class="fas fa-cog"></i>
+                <span>Settings</span></button>
+        </div>
+    </header>
 
-<div class="app-container" style="justify-content:center;">
-    <!-- Clicker Main Display (Full Screen Centered) -->
-    <main class="clicker-section" id="click-area" style="flex:1; max-width:500px; border-right:none; display:flex; flex-direction:column; justify-content:space-between; padding:1rem 1rem 0.5rem 1rem;">
-        
-        <div class="top-content" style="flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center;">
-            <div class="stats-container" style="margin-bottom:10px;">
-                <h1 class="code-count" id="code-count" style="font-size:clamp(2.5rem, 8vw, 4.5rem); letter-spacing:-1px; margin:0;">0</h1>
-                <div class="cps-count"><span id="cps-count" style="font-size:1rem;">0 lines / second</span></div>
-            </div>
-            
-            <div class="main-button-container" style="margin-bottom:10px;">
-                <div class="main-button" id="main-button">
-                    <i class="fas fa-laptop-code"></i>
+    <div class="app-container" style="justify-content:center;">
+        <!-- Clicker Main Display (Full Screen Centered) -->
+        <main class="clicker-section" id="click-area"
+            style="flex:1; max-width:500px; border-right:none; display:flex; flex-direction:column; justify-content:space-between; padding:1rem 1rem 0.5rem 1rem;">
+
+            <div class="top-content"
+                style="flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center;">
+                <div class="stats-container" style="margin-bottom:10px;">
+                    <h1 class="code-count" id="code-count"
+                        style="font-size:clamp(2.5rem, 8vw, 4.5rem); letter-spacing:-1px; margin:0;">0</h1>
+                    <div class="cps-count"><span id="cps-count" style="font-size:1rem;">0 lines / second</span></div>
                 </div>
-            </div>
-            
-            <div id="mini-map" class="mini-map-container" style="margin-bottom:10px;"></div>
-        </div>
 
-        <div class="bottom-controls" style="width:100%; flex-shrink:0;">
-            <div style="display:flex; flex-direction:column; gap:8px;">
-                <button id="btn-store" style="width:100%; background:var(--accent-color); color:white; border:none; border-radius:12px; padding:12px; font-size:1.1rem; font-weight:bold; cursor:pointer; box-shadow:0 8px 15px rgba(0,0,0,0.3); transition:transform 0.1s;">
-                    <i class="fas fa-shopping-cart"></i> Recruit & Upgrades
-                </button>
-                <button id="rewarded-ad-btn" class="rewarded-ad-btn" style="width:100%; margin:0; padding:12px; font-size:1rem; border-radius:12px;">
-                    <i class="fas fa-video"></i> Watch Ad for 2x Boost!
-                </button>
-                <div class="ad-active-tag" id="ad-active-tag" style="margin-top:5px;"></div>
+                <div class="main-button-container" style="margin-bottom:10px;">
+                    <div class="main-button" id="main-button">
+                        <i class="fas fa-laptop-code"></i>
+                    </div>
+                </div>
+
+                <div id="mini-map" class="mini-map-container" style="margin-bottom:10px;"></div>
             </div>
 
+            <div class="bottom-controls" style="width:100%; flex-shrink:0;">
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    <button id="btn-store"
+                        style="width:100%; background:var(--accent-color); color:white; border:none; border-radius:12px; padding:12px; font-size:1.1rem; font-weight:bold; cursor:pointer; box-shadow:0 8px 15px rgba(0,0,0,0.3); transition:transform 0.1s;">
+                        <i class="fas fa-shopping-cart"></i> Recruit & Upgrades
+                    </button>
+                    <button id="rewarded-ad-btn" class="rewarded-ad-btn"
+                        style="width:100%; margin:0; padding:12px; font-size:1rem; border-radius:12px;">
+                        <i class="fas fa-video"></i> Watch Ad for 2x Boost!
+                    </button>
+                    <div class="ad-active-tag" id="ad-active-tag" style="margin-top:5px;"></div>
+                </div>
 
-        </div>
-    </main>
-</div>
 
-<!-- Modal Overlay -->
-<div id="modal-overlay" class="modal-overlay">
-    <div id="modal-content" class="modal-box" style="display:flex; flex-direction:column; max-height:85vh;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #30363d; padding-bottom:10px;">
-            <h2 id="modal-title" style="margin:0;">Title</h2>
-            <button id="modal-close" class="modal-close" style="position:static; margin:0;"><i class="fas fa-times"></i></button>
-        </div>
-        <div id="modal-body" class="modal-body" style="overflow-y:auto; flex:1; padding-right:10px;"></div>
+            </div>
+        </main>
     </div>
-</div>
 
-<input type="file" id="file-import" style="display:none;" accept=".json,.txt" onchange="handleFileImport(event)">
-<a id="download-anchor" style="display:none;"></a>
+    <!-- Modal Overlay -->
+    <div id="modal-overlay" class="modal-overlay">
+        <div id="modal-content" class="modal-box" style="display:flex; flex-direction:column; max-height:85vh;">
+            <div
+                style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #30363d; padding-bottom:10px;">
+                <h2 id="modal-title" style="margin:0;">Title</h2>
+                <button id="modal-close" class="modal-close" style="position:static; margin:0;"><i
+                        class="fas fa-times"></i></button>
+            </div>
+            <div id="modal-body" class="modal-body" style="overflow-y:auto; flex:1; padding-right:10px;"></div>
+        </div>
+    </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="script.js"></script>
+    <input type="file" id="file-import" style="display:none;" accept=".json,.txt" onchange="handleFileImport(event)">
+    <a id="download-anchor" style="display:none;"></a>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="script.js"></script>
 </body>
+
 </html>

@@ -55,12 +55,12 @@ document.getElementById('start-game-btn').addEventListener('click', () => {
 document.getElementById('pause-btn').addEventListener('click', () => {
     isPaused = true;
     pauseMenu.classList.remove('hidden');
-    if(IS_HOST) Matter.Runner.stop(engineRunner);
+    if(IS_HOST && engineRunner) Matter.Runner.stop(engineRunner);
 });
 document.getElementById('resume-btn').addEventListener('click', () => {
     isPaused = false;
     pauseMenu.classList.add('hidden');
-    if(IS_HOST) Matter.Runner.start(engineRunner, engine);
+    if(IS_HOST && engineRunner) Matter.Runner.start(engineRunner, engine);
 });
 document.getElementById('quit-btn').addEventListener('click', () => location.reload());
 document.getElementById('back-to-main-btn').addEventListener('click', () => location.reload());
@@ -71,14 +71,24 @@ document.getElementById('restart-btn').addEventListener('click', () => location.
 let peer = null;
 let conn = null;
 let guestSyncFrame = null;
+let displayRoomCode = "";
+
+function generateCode() {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; 
+    let res = ""; 
+    for(let i=0; i<5; i++) res += chars.charAt(Math.floor(Math.random() * chars.length));
+    return res;
+}
 
 function initOnlineLobby() {
     mainMenu.classList.add('hidden');
     lobbyMenu.classList.remove('hidden');
     
-    peer = new Peer(); 
+    displayRoomCode = generateCode();
+    peer = new Peer("elfight-" + displayRoomCode); // Use prefix to avoid public server collision
+    
     peer.on('open', (id) => {
-        document.getElementById('host-code-display').innerText = id;
+        document.getElementById('host-code-display').innerText = displayRoomCode;
     });
     
     peer.on('connection', (c) => {
@@ -86,40 +96,51 @@ function initOnlineLobby() {
         conn = c; IS_HOST = true;
         document.getElementById('connection-status').innerText = 'Player 2 Joined! Starting...';
         c.on('data', handleNetworkData);
-        // Send initial setup (levels)
+        // Send initial setup
         c.send({ m: 'init', levels: NUM_LEVELS });
         setTimeout(startGame, 1000);
+    });
+    
+    peer.on('error', (err) => {
+        document.getElementById('connection-status').innerText = 'Network error. Try again.';
+        console.error(err);
     });
 }
 
 document.getElementById('join-btn').addEventListener('click', () => {
-    let hostId = document.getElementById('join-code-input').value.trim();
-    if(!hostId) return;
-    if(!peer) return; // not initialized properly
+    let targetCode = document.getElementById('join-code-input').value.trim().toUpperCase();
+    if(!targetCode) return;
+    
+    if(!peer) peer = new Peer(); // Initialize guest peer
     
     document.getElementById('connection-status').innerText = 'Connecting...';
-    conn = peer.connect(hostId);
+    conn = peer.connect("elfight-" + targetCode);
+    
     conn.on('open', () => {
         document.getElementById('connection-status').innerText = 'Connected! Waiting for host...';
         IS_HOST = false;
         conn.on('data', handleNetworkData);
+    });
+    
+    conn.on('error', () => {
+        document.getElementById('connection-status').innerText = 'Invalid Host Code.';
     });
 });
 
 function handleNetworkData(data) {
     if(data.m === 'init' && !IS_HOST) {
         NUM_LEVELS = data.levels;
-        startGame();
+        startGame(); // Start visual client
     }
     else if(data.m === 'sync' && !IS_HOST) {
         guestSyncFrame = data; 
     }
     else if(data.m === 'input' && IS_HOST) {
-        // Guest sending inputs
+        // Guest sending inputs explicitly mapped to Player 2
         keys[data.k] = data.v;
-        if(data.k === 'Fire' && data.v === true) {
+        if(data.k === 'FireP2' && data.v === true) {
             let now = Date.now();
-            if(now - p2Fire > fireCooldown && !gameOver) { 
+            if(now - p2Fire > fireCooldown && !gameOver && !isPaused) { 
                 shootClone(player2Body, p2Facing, 'clone_2', p2Color); 
                 p2Fire = now; 
             }
@@ -175,29 +196,31 @@ function startGame() {
     lobbyMenu.classList.add('hidden');
     gameUi.classList.remove('hidden');
     
-    // Toggle mobile controls if needed (only display P2 controls if local 1v1)
+    // Toggle mobile controls layout
     if(window.innerWidth <= 800) {
         mobileControls.classList.remove('hidden');
-        if(GAME_MODE === 'online') {
-            document.getElementById('p2-mobile-controls').style.display = 'none'; // Online only needs 1 row
-        } else if(GAME_MODE === '1vAI') {
-            document.getElementById('p2-mobile-controls').style.display = 'none'; 
+        if(GAME_MODE === 'online' || GAME_MODE === '1vAI') {
+            document.getElementById('p2-mobile-controls').style.display = 'none'; // Only 1 set of buttons needed
         }
     }
 
-    // Only host runs full physics
+    // Set Level Distances
+    measureLevels = []; 
+    for(let i=0; i < NUM_LEVELS; i++) measureLevels.push(550 - (i * 200));
+    
+    // Calculate precise container tube top boundary so Win fountain looks epic
+    let tubeTopY = measureLevels[NUM_LEVELS - 1] - 300;
+
     if(IS_HOST) {
         engine = Engine.create();
         world = engine.world;
         
         const wallOptions = { isStatic: true, render: { fillStyle: 'transparent' }, friction: 0.0 };
-        const leftWall = Bodies.rectangle(240, -2000, 20, 6000, wallOptions);
-        const rightWall = Bodies.rectangle(560, -2000, 20, 6000, wallOptions);
+        // Walls tightly wrap around the visual tube dimensions rather than being infinite
+        const leftWall = Bodies.rectangle(240, tubeTopY / 2 + 350, 20, Math.abs(tubeTopY - 700) + 500, wallOptions);
+        const rightWall = Bodies.rectangle(560, tubeTopY / 2 + 350, 20, Math.abs(tubeTopY - 700) + 500, wallOptions);
         const bottomFloor = Bodies.rectangle(400, 720, 320, 40, { isStatic: true, friction: 0.8 });
         Composite.add(world, [leftWall, rightWall, bottomFloor]);
-
-        measureLevels = []; 
-        for(let i=0; i < NUM_LEVELS; i++) measureLevels.push(550 - (i * 200));
 
         playerBody = Bodies.circle(300, 650, 20, { restitution: 0.0, friction: 0.5, density: 0.05, label: 'player1' });
         Body.setInertia(playerBody, Infinity); 
@@ -209,21 +232,16 @@ function startGame() {
         
         createTarget();
 
-        // Ground detection and Movement loops
         Events.on(engine, 'collisionStart', (e) => checkGround(e.pairs));
         Events.on(engine, 'collisionActive', (e) => checkGround(e.pairs));
         Events.on(engine, 'beforeUpdate', updatePhysicsLogic);
 
         engineRunner = Runner.create();
         Runner.start(engineRunner, engine);
-    } else {
-        // Guest pre-calculates levels visually
-        measureLevels = []; 
-        for(let i=0; i < NUM_LEVELS; i++) measureLevels.push(550 - (i * 200));
     }
     
     document.getElementById('level-display').innerText = `1 / ${NUM_LEVELS}`;
-    gameLoop(); // Start Render Loop (both host and guest)
+    gameLoop(); // Start Render Loop safely
 }
 
 function createTarget() {
@@ -237,51 +255,65 @@ function createTarget() {
 
 // ====== INPUT ROUTING ======
 window.addEventListener('keydown', (e) => {
-    let handled = false;
-    // Map host controls vs guest controls
     if(IS_HOST) {
-        keys[e.code] = true; handled = true;
+        keys[e.code] = true; 
         if(e.code === 'Space' && Date.now() - p1Fire > fireCooldown && !gameOver && !isPaused) { 
             shootClone(playerBody, p1Facing, 'clone_1', p1Color); p1Fire = Date.now(); 
         }
         if(GAME_MODE === '1v1' && e.code === 'Enter' && Date.now() - p2Fire > fireCooldown && !gameOver && !isPaused) {
             shootClone(player2Body, p2Facing, 'clone_2', p2Color); p2Fire = Date.now();
         }
-    } else {
-        // Guest sends input to host
-        if(conn) {
-            conn.send({m: 'input', k: e.code, v: true});
-            if(e.code === 'Space') conn.send({m: 'input', k: 'Fire', v: true}); // map guest's space to Fire
-        }
+    } else if(conn) {
+        let mapped = e.code;
+        // Map Guest Local keys to Host Player 2 Keys
+        if(e.code === 'KeyA') mapped = 'ArrowLeft';
+        if(e.code === 'KeyD') mapped = 'ArrowRight';
+        if(e.code === 'KeyW') mapped = 'ArrowUp';
+        if(e.code === 'Space') { mapped = 'FireP2'; conn.send({m: 'input', k: mapped, v: true}); }
+        conn.send({m: 'input', k: mapped, v: true});
     }
 });
 
 window.addEventListener('keyup', (e) => {
     if(IS_HOST) keys[e.code] = false;
-    else if(conn) conn.send({m: 'input', k: e.code, v: false});
+    else if(conn) {
+        let mapped = e.code;
+        if(e.code === 'KeyA') mapped = 'ArrowLeft';
+        if(e.code === 'KeyD') mapped = 'ArrowRight';
+        if(e.code === 'KeyW') mapped = 'ArrowUp';
+        conn.send({m: 'input', k: mapped, v: false});
+    }
 });
 
 // Mobile Controls Interface
-function setupMobileBtn(id, keyCode, guestFireLabel) {
+function setupMobileBtn(id, keyCode, mappedKeyIfGuest) {
     const btn = document.getElementById(id);
     if (!btn) return;
     btn.addEventListener('touchstart', (e) => { 
         e.preventDefault(); 
-        if(IS_HOST) keys[keyCode] = true; else if(conn) conn.send({m:'input', k:keyCode, v:true}); 
+        if(IS_HOST) keys[keyCode] = true; 
+        else if(conn) conn.send({m:'input', k:mappedKeyIfGuest || keyCode, v:true}); 
     });
     btn.addEventListener('touchend', (e) => { 
         e.preventDefault(); 
-        if(IS_HOST) keys[keyCode] = false; else if(conn) conn.send({m:'input', k:keyCode, v:false}); 
+        if(IS_HOST) keys[keyCode] = false; 
+        else if(conn) conn.send({m:'input', k:mappedKeyIfGuest || keyCode, v:false}); 
     });
 }
-setupMobileBtn('btn-left', 'KeyA'); setupMobileBtn('btn-right', 'KeyD'); setupMobileBtn('btn-jump', 'KeyW');
-setupMobileBtn('btn-left-2', 'ArrowLeft'); setupMobileBtn('btn-right-2', 'ArrowRight'); setupMobileBtn('btn-jump-2', 'ArrowUp');
+// Guest uses local mobile P1 buttons, mapped nicely to P2 logic on Host side
+setupMobileBtn('btn-left', 'KeyA', 'ArrowLeft'); 
+setupMobileBtn('btn-right', 'KeyD', 'ArrowRight'); 
+setupMobileBtn('btn-jump', 'KeyW', 'ArrowUp');
+
+setupMobileBtn('btn-left-2', 'ArrowLeft'); 
+setupMobileBtn('btn-right-2', 'ArrowRight'); 
+setupMobileBtn('btn-jump-2', 'ArrowUp');
 
 document.getElementById('btn-fire').addEventListener('touchstart', (e) => {
     e.preventDefault(); 
     if(IS_HOST) {
         if(Date.now() - p1Fire > fireCooldown && !gameOver && !isPaused) { shootClone(playerBody, p1Facing, 'clone_1', p1Color); p1Fire = Date.now(); }
-    } else if(conn) { conn.send({m:'input', k:'Fire', v:true}); }
+    } else if(conn) { conn.send({m:'input', k:'FireP2', v:true}); }
 });
 document.getElementById('btn-fire-2').addEventListener('touchstart', (e) => {
     e.preventDefault(); 
@@ -289,7 +321,6 @@ document.getElementById('btn-fire-2').addEventListener('touchstart', (e) => {
         if(Date.now() - p2Fire > fireCooldown && !gameOver && !isPaused) { shootClone(player2Body, p2Facing, 'clone_2', p2Color); p2Fire = Date.now(); }
     }
 });
-
 
 // ====== PHYSICS LOGIC (HOST ONLY) ======
 let p1GroundedTime = 0, p2GroundedTime = 0;
@@ -310,7 +341,6 @@ function checkGround(pairs) {
             }
         }
         
-        // Target Hits (placed here so it works reliably)
         if(targetActive && p.bodyA.label === 'target' && p.bodyB.label.startsWith('clone')) hitTarget(p.bodyB);
         else if(targetActive && p.bodyB.label === 'target' && p.bodyA.label.startsWith('clone')) hitTarget(p.bodyA);
     }
@@ -355,15 +385,24 @@ function syncScoreboard() {
     document.getElementById('level-display').innerText = `${Math.min(currentLevelIdx + 1, NUM_LEVELS)} / ${NUM_LEVELS}`;
 }
 
+function cullOldCells() {
+    // Keep max clones under 200 to prevent lag and clipping pressure
+    if(physicsCells.length > 200) {
+        let oldest = physicsCells.shift();
+        Composite.remove(world, oldest);
+    }
+}
+
 function shootClone(pBody, facing, label, color) {
-    let nx = facing; let ny = -0.10; 
-    let spawnX = pBody.position.x + nx * 25; let spawnY = pBody.position.y + ny * 25;
+    let spawnX = pBody.position.x + facing * 25; let spawnY = pBody.position.y - 10; 
     let clone = Bodies.polygon(spawnX, spawnY, 8, 12, {
         restitution: 0.05, friction: 0.9, frictionStatic: 5.0, density: 0.08,
         label: label, color: color, chamfer: { radius: 2 } 
     });
-    Body.setVelocity(clone, { x: nx * 18, y: ny * 18 });
+    Body.setVelocity(clone, { x: facing * 18, y: -4 });
     physicsCells.push(clone); Composite.add(world, clone);
+    cullOldCells();
+    
     spawnParticles(spawnX, spawnY, color, 10, 4);
     screenShake = Math.max(screenShake, 4); 
 }
@@ -373,7 +412,7 @@ function triggerAvalanche(winnerLabel, winnerColor) {
     let lineY = measureLevels[currentLevelIdx - 1]; 
     let count = 0;
     let avalancheInterval = setInterval(() => {
-        if(isPaused) return; // Wait
+        if(isPaused) return; 
         for(let i=0; i<3; i++) {
             let dropX = 260 + Math.random() * 280; let dropY = lineY - 200 - Math.random() * 200; 
             let clone = Bodies.polygon(dropX, dropY, 8, 12, {
@@ -381,6 +420,7 @@ function triggerAvalanche(winnerLabel, winnerColor) {
                 label: winnerLabel, color: winnerColor, chamfer: { radius: 2 }
             });
             physicsCells.push(clone); Composite.add(world, clone);
+            cullOldCells();
             spawnParticles(dropX, dropY + 20, 'white', 2, 4);
         }
         count++; screenShake = 10;
@@ -400,19 +440,14 @@ function applyBuoyancy(player) {
     }
 }
 
-// AI LOGIC
 let aiPhaseTimer = 0;
 function runAI() {
-    // Simple Pathfinding: jump whenever standing, move towards target wall, shoot constantly
-    // Tries to build a mountain of clones
     if(player2Body.position.x < 350) { keys['ArrowRight'] = true; keys['ArrowLeft'] = false; }
     else if(player2Body.position.x > 450) { keys['ArrowLeft'] = true; keys['ArrowRight'] = false; }
     else { keys['ArrowLeft'] = false; keys['ArrowRight'] = false; }
     
-    // Hop occasionally to climb
     if(Math.random() < 0.05) keys['ArrowUp'] = true; else keys['ArrowUp'] = false;
     
-    // Shoot down constantly to build
     if(Date.now() - p2Fire > fireCooldown * 1.5) {
         shootClone(player2Body, p2Facing, 'clone_2', p2Color);
         p2Fire = Date.now();
@@ -428,9 +463,6 @@ function updatePhysicsLogic() {
     
     let p1Force = p1GroundType === 'clone_2' ? 0.005 : 0.012; 
     let p1Max = p1GroundType === 'clone_2' ? 3 : 7;
-    if (keys['KeyA'] || (keys['ArrowLeft'] && GAME_MODE === 'online' && !IS_HOST)) { // map guest's movement to ArrowLeft since they use mobile left/right mapped to ArrowLeft? Wait no, guest uses KeyA locally or sends KeyA over network.
-    }
-    // Correct networked mappings: P1 is KeyA/D, P2 is ArrowLeft/Right.
     if (keys['KeyA']) { if (playerBody.velocity.x > -p1Max) Body.applyForce(playerBody, playerBody.position, { x: -p1Force, y: 0 }); p1Facing = -1; }
     if (keys['KeyD']) { if (playerBody.velocity.x < p1Max) Body.applyForce(playerBody, playerBody.position, { x: p1Force, y: 0 }); p1Facing = 1; }
     if (keys['KeyW'] && (Date.now() - p1GroundedTime) < 150 && playerBody.velocity.y > -2) {
@@ -458,7 +490,6 @@ function updatePhysicsLogic() {
         }
     }
 
-    // BROADCAST SYNC TO GUEST
     if(IS_ONLINE && IS_HOST && conn) {
         conn.send({
             m: 'sync',
@@ -487,23 +518,31 @@ function draw() {
     
     // Unpack Guest Sync Data if Guest
     let renderP1 = null, renderP2 = null, renderCl = [];
+    let tubeTopY = measureLevels.length > 0 ? measureLevels[NUM_LEVELS - 1] - 300 : 0;
+
     if(IS_HOST && playerBody) {
         renderP1 = {x: playerBody.position.x, y: playerBody.position.y, f: p1Facing};
         renderP2 = {x: player2Body.position.x, y: player2Body.position.y, f: p2Facing};
-        renderCl = physicsCells.map(c => ({x: c.position.x, y: c.position.y, c: c.color, a: c.angle}));
-        // Logic for tracking camera
+        renderCl = physicsCells;
+        
         if(!gameOver) {
             let highestPlayerY = Math.min(renderP1.y, renderP2.y);
             let desiredCameraY = highestPlayerY - 450; 
             if (desiredCameraY > 0) desiredCameraY = 0; 
             cameraY += (desiredCameraY - cameraY) * 0.1;
         } else {
-            let lastLevelY = measureLevels[NUM_LEVELS - 1]; let midPointY = (lastLevelY + 700) / 2; 
-            cameraY += (midPointY - cameraY) * 0.02; cameraZoom += (0.4 - cameraZoom) * 0.01;
+            // Cinematic Win Frame
+            let midPointY = (tubeTopY + 700) / 2; 
+            cameraY += (midPointY - cameraY) * 0.05; 
+            let targetZoom = Math.max(0.2, 700 / (700 - tubeTopY)); // Auto zoom to show entire tube!
+            cameraZoom += (targetZoom - cameraZoom) * 0.02;
+            
+            // Waterfall Fountain from clearly defined top!
             if(Math.random() < 0.2) {
-                let clone = Bodies.polygon(400+(Math.random()*150-75), lastLevelY-100, 8, 15, {restitution:0.1, color:globalWinnerColor});
-                Body.setVelocity(clone, { x: (Math.random()-0.5)*15, y: -15 });
+                let clone = Bodies.polygon(400+(Math.random()*200-100), tubeTopY - 50, 8, 15, {restitution:0.1, color:globalWinnerColor});
+                Body.setVelocity(clone, { x: (Math.random()-0.5)*20, y: -5 });
                 physicsCells.push(clone); Composite.add(world, clone);
+                cullOldCells(); // prevents lag!
             }
         }
     } else if(guestSyncFrame) {
@@ -520,34 +559,34 @@ function draw() {
         
         if(guestSyncFrame.over && !gameOver) endGame(guestSyncFrame.winColor);
 
-        // Track camera locally on Guest
         if(!gameOver) {
             let highestPlayerY = Math.min(renderP1.y, renderP2.y);
             let desiredCameraY = highestPlayerY - 450; 
             if (desiredCameraY > 0) desiredCameraY = 0; 
             cameraY += (desiredCameraY - cameraY) * 0.1;
         } else {
-            let lastLevelY = measureLevels[NUM_LEVELS - 1]; let midPointY = (lastLevelY + 700) / 2; 
-            cameraY += (midPointY - cameraY) * 0.02; cameraZoom += (0.4 - cameraZoom) * 0.01;
+            let midPointY = (tubeTopY + 700) / 2; 
+            cameraY += (midPointY - cameraY) * 0.05; 
+            let targetZoom = Math.max(0.2, 700 / (700 - tubeTopY)); 
+            cameraZoom += (targetZoom - cameraZoom) * 0.02;
         }
     }
-    
-    if(!renderP1) return; // Wait for engine or sync data
     
     ctx.save();
     let cx = canvas.width / 2; let cy = canvas.height / 2;
     ctx.translate(cx, cy); ctx.scale(cameraZoom, cameraZoom); ctx.translate(-cx, -cy);
     ctx.translate(0, -cameraY);
     
+    // Even if renderP1 isn't available for guest initially, draw background logic
     if (screenShake > 0) {
         ctx.translate((Math.random() - 0.5) * screenShake, (Math.random() - 0.5) * screenShake);
         screenShake *= 0.9;
         if (screenShake < 0.5) screenShake = 0;
     }
     
-    // Draw Tube Bounds
+    // Draw Tube Bounds matching calculated lengths
     ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
-    ctx.fillRect(250, -5000, 300, 5700);
+    ctx.fillRect(250, tubeTopY, 300, 700 - tubeTopY);
 
     ctx.lineWidth = 2;
     for(let i=0; i<NUM_LEVELS; i++) {
@@ -564,7 +603,6 @@ function draw() {
         ctx.fillText(`LVL ${i+1}`, 400, y - 50); ctx.globalAlpha = 1.0; ctx.setLineDash([]); 
     }
 
-    // Target Sensor Box
     let isTa = IS_HOST ? targetActive : (guestSyncFrame ? guestSyncFrame.s.ta : false);
     let cl = IS_HOST ? currentLevelIdx : (guestSyncFrame ? guestSyncFrame.s.l : 0);
     if(cl < NUM_LEVELS) {
@@ -575,31 +613,32 @@ function draw() {
         ctx.fillRect(250, ty - 2, 300, 24); ctx.shadowBlur = 0;
     }
 
-    // Render Clones
-    for(let pc of renderCl) {
-        ctx.fillStyle = pc.c;
-        ctx.beginPath();
-        ctx.arc(pc.x, pc.y, 12, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = 'rgba(255,255,255,0.4)';
-        ctx.beginPath(); ctx.arc(pc.x - 4, pc.y - 4, 3, 0, Math.PI*2); ctx.fill();
+    if(renderP1) {
+        for(let pc of renderCl) {
+            let x = pc.x || pc.position.x; let y = pc.y || pc.position.y; let c = pc.c || pc.color;
+            ctx.fillStyle = c;
+            ctx.beginPath(); ctx.arc(x, y, 12, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = 'rgba(255,255,255,0.4)';
+            ctx.beginPath(); ctx.arc(x - 4, y - 4, 3, 0, Math.PI*2); ctx.fill();
+        }
+
+        const drawP = (x, y, color, facing) => {
+            ctx.fillStyle = color; ctx.shadowBlur = 20; ctx.shadowColor = color;
+            ctx.beginPath(); ctx.arc(x, y, 20, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+            ctx.fillStyle = 'white';
+            ctx.beginPath(); ctx.arc(x + (facing * 8), y - 4, 6, 0, Math.PI * 2); ctx.fill();
+        };
+
+        drawP(renderP2.x, renderP2.y, p2Color, renderP2.f);
+        drawP(renderP1.x, renderP1.y, p1Color, renderP1.f); 
     }
-
-    // Render Players
-    const drawP = (x, y, color, facing) => {
-        ctx.fillStyle = color; ctx.shadowBlur = 20; ctx.shadowColor = color;
-        ctx.beginPath(); ctx.arc(x, y, 20, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
-        ctx.fillStyle = 'white';
-        ctx.beginPath(); ctx.arc(x + (facing * 8), y - 4, 6, 0, Math.PI * 2); ctx.fill();
-    };
-
-    drawP(renderP2.x, renderP2.y, p2Color, renderP2.f);
-    drawP(renderP1.x, renderP1.y, p1Color, renderP1.f); 
     
-    // Tube Border Foreground Lines
+    // Tube Border Foreground Lines matching tube dimensions exactly
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)'; ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.moveTo(250, -5000); ctx.lineTo(250, 700);
-    ctx.moveTo(550, -5000); ctx.lineTo(550, 700); ctx.moveTo(250, 700); ctx.lineTo(550, 700); ctx.stroke();
+    ctx.beginPath(); 
+    ctx.moveTo(250, tubeTopY); ctx.lineTo(250, 700);
+    ctx.moveTo(550, tubeTopY); ctx.lineTo(550, 700); 
+    ctx.moveTo(250, 700); ctx.lineTo(550, 700); ctx.stroke();
 
     ctx.globalCompositeOperation = "lighter";
     for(let i = sparks.length - 1; i >= 0; i--) {

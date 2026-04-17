@@ -121,7 +121,6 @@ document.getElementById('join-btn').addEventListener('click', () => {
         document.getElementById('connection-status').innerText = 'Connected! Handshaking...';
         IS_HOST = false;
         conn.on('data', handleNetworkData);
-        // Robust Sync: Guest pings ready to safely receive layout data
         conn.send({m: 'guest_ready'});
     });
     
@@ -143,13 +142,12 @@ function handleNetworkData(data) {
     }
     else if(data.m === 'init' && !IS_HOST) {
         NUM_LEVELS = data.levels;
-        gamePlatforms = data.plats; // Statically pre-loaded
+        gamePlatforms = data.plats; 
         gamePowerups = data.pu;
         startGame(); // Start visual client
     }
     else if(data.m === 'sync' && !IS_HOST) {
         guestSyncFrame = data; 
-        // Update powerups locally from host sync array
         gamePowerups = data.pu; 
     }
     else if(data.m === 'input' && IS_HOST) {
@@ -214,8 +212,8 @@ function startGame() {
     gameUi.classList.remove('hidden');
     
     if(window.innerWidth <= 800) {
-        sidePanel.classList.add('game-active'); // Nuke Side Panel for pure mobile gameplay canvas HUD
-        mobileControls.classList.remove('hidden');
+        sidePanel.classList.add('game-active'); // Hides Side Panel entirely to give 100% space to Canvas
+        mobileControls.classList.add('active'); // Unhides mobile controls natively
         if(GAME_MODE === 'online' || GAME_MODE === '1vAI') {
             document.getElementById('p2-mobile-controls').style.display = 'none'; 
         }
@@ -223,7 +221,6 @@ function startGame() {
 
     measureLevels = []; 
     for(let i=0; i < NUM_LEVELS; i++) measureLevels.push(550 - (i * 200));
-    
     let tubeTopY = measureLevels[NUM_LEVELS - 1] - 300;
 
     if(IS_HOST) {
@@ -236,10 +233,9 @@ function startGame() {
         const bottomFloor = Bodies.rectangle(400, 720, 320, 40, { isStatic: true, friction: 0.8 });
         Composite.add(world, [leftWall, rightWall, bottomFloor]);
 
-        // PROCEDURAL GENERATION Loop
         for(let i=0; i < NUM_LEVELS - 1; i++) {
             let platY = measureLevels[i] - 100;
-            let pw = 90 + Math.random() * 80; // Width of platform
+            let pw = 90 + Math.random() * 80; 
             let px = 250 + pw/2 + Math.random() * (300 - pw);
             let plat = Bodies.rectangle(px, platY, pw, 15, { isStatic: true, friction: 0.9 });
             Composite.add(world, plat);
@@ -277,13 +273,7 @@ function startGame() {
     }
     
     document.getElementById('level-display').innerText = `1 / ${NUM_LEVELS}`;
-    if(window.innerWidth <= 800) resizeCanvas();
-    gameLoop(); // Start Render Loop safely
-}
-
-function resizeCanvas() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    gameLoop(); 
 }
 
 function createTarget() {
@@ -328,7 +318,6 @@ window.addEventListener('keyup', (e) => {
     }
 });
 
-// Mobile Controls Interface
 function setupMobileBtn(id, keyCode, mappedKeyIfGuest) {
     const btn = document.getElementById(id);
     if (!btn) return;
@@ -538,7 +527,6 @@ function draw() {
     let renderP1 = null, renderP2 = null, renderCl = [];
     let tubeTopY = measureLevels.length > 0 ? measureLevels[NUM_LEVELS - 1] - 300 : 0;
 
-    // Scoreboard states derived from sync or engine
     let s_p1 = 0, s_p2 = 0, s_l = 0, s_ta = false;
     let b_p1 = {}, b_p2 = {};
 
@@ -597,14 +585,12 @@ function draw() {
     ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
     ctx.fillRect(250, tubeTopY, 300, 700 - tubeTopY);
 
-    // Draw Platforms
     ctx.fillStyle = '#444';
     for(let plat of gamePlatforms) {
         let px = plat.x || plat.position.x; let py = plat.y || plat.position.y; let pw = plat.w || (plat.bounds.max.x - plat.bounds.min.x);
         ctx.fillRect(px - pw/2, py - 7.5, pw, 15);
     }
     
-    // Draw Powerups with glowing pulse
     let pulseCore = Math.abs(Math.sin(Date.now() / 300));
     for(let pu of gamePowerups) {
         let pux = pu.x || pu.position.x; let puy = pu.y || pu.position.y; let color = pu.c || pu.color;
@@ -646,7 +632,6 @@ function draw() {
             ctx.beginPath(); ctx.arc(x, y, 20, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
             ctx.fillStyle = 'white';
             ctx.beginPath(); ctx.arc(x + (facing * 8), y - 4, 6, 0, Math.PI * 2); ctx.fill();
-            // Render Buff visual states
             if(buffs.j) { ctx.strokeStyle = '#39ff14'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(x, y, 25, 0, Math.PI*2); ctx.stroke(); }
             if(buffs.r) { ctx.fillStyle = '#ffff00'; ctx.beginPath(); ctx.arc(x, y-30, 5, 0, Math.PI*2); ctx.fill(); }
         };
@@ -672,16 +657,17 @@ function draw() {
 
     ctx.restore(); 
     
-    // NATIVE CANVAS HUD TRANSCENDING CAMERA TRANSFORMS
+    // NATIVE CANVAS HUD TRANSCENDING CAMERA
     if(window.innerWidth <= 800 && mainMenu.classList.contains('hidden')) {
-        ctx.font = "bold 24px Inter";
-        ctx.fillStyle = p1Color; ctx.textAlign = "left"; ctx.fillText(`P1: ${s_p1}/${hitsRequired}`, 20, 60);
+        ctx.font = "bold 32px Inter";
+        ctx.fillStyle = p1Color; ctx.textAlign = "left"; ctx.fillText(`P1: ${s_p1}/${hitsRequired}`, 40, 60);
         ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.fillText(`LVL ${Math.min(s_l+1, NUM_LEVELS)} / ${NUM_LEVELS}`, canvas.width/2, 60);
-        ctx.fillStyle = p2Color; ctx.textAlign = "right"; ctx.fillText(`P2: ${s_p2}/${hitsRequired}`, canvas.width - 20, 60);
+        ctx.fillStyle = p2Color; ctx.textAlign = "right"; ctx.fillText(`P2: ${s_p2}/${hitsRequired}`, canvas.width - 40, 60);
+        
         if(s_ta && !gameOver) {
             let pulse = Math.abs(Math.sin(Date.now() / 200));
             ctx.fillStyle = `rgba(255, 215, 0, ${pulse})`; ctx.textAlign = "center";
-            ctx.fillText(`TARGET UNLOCKED!`, canvas.width/2, 100);
+            ctx.fillText(`TARGET UNLOCKED!`, canvas.width/2, 110);
         }
     }
 }

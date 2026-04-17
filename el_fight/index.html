@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>El Fight - Multiplayer</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Matter.js Physics Engine -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <!-- PeerJS for WebRTC Multiplayer -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+</head>
+<body>
+    <div id="app-wrapper">
+        
+        <!-- SIDE PANEL FOR MENUS AND UI -->
+        <div id="side-panel">
+            <h1 class="glow-text logo-title">EL FIGHT</h1>
+            
+            <!-- MAIN MENU -->
+            <div id="main-menu" class="glass-panel">
+                <h2 class="section-title">Select Mode</h2>
+                <div class="menu-group">
+                    <button class="glow-button sm mode-btn active" data-mode="1vAI">1 vs AI</button>
+                    <button class="glow-button sm mode-btn" data-mode="1v1">Local 1v1</button>
+                    <button class="glow-button sm mode-btn" data-mode="online">Online</button>
+                </div>
+
+                <h2 class="section-title">Levels</h2>
+                <div class="menu-group">
+                    <button class="glow-button sm lvl-btn active" data-levels="3">Base (3)</button>
+                    <button class="glow-button sm lvl-btn" data-levels="5">Med (5)</button>
+                    <button class="glow-button sm lvl-btn" data-levels="10">Max (10)</button>
+                </div>
+
+                <button id="start-game-btn" class="glow-button lg mt-4">P L A Y</button>
+            </div>
+
+            <!-- ONLINE LOBBY MENU -->
+            <div id="lobby-menu" class="glass-panel hidden">
+                <h2 class="section-title text-gold">Online Match</h2>
+                
+                <div class="lobby-box">
+                    <h3>Host Game</h3>
+                    <p class="small-text">Share this code with a friend:</p>
+                    <div id="host-code-display" class="code-box">GENERATING...</div>
+                </div>
+                
+                <div class="divider">OR</div>
+                
+                <div class="lobby-box">
+                    <h3>Join Game</h3>
+                    <input type="text" id="join-code-input" class="glow-input" placeholder="Enter Host Code">
+                    <button id="join-btn" class="glow-button xs mt-2">Connect</button>
+                </div>
+                <div id="connection-status" class="status-msg"></div>
+                
+                <button id="back-to-main-btn" class="glow-button sm mt-4">Cancel</button>
+            </div>
+
+            <!-- ACTIVE GAME UI -->
+            <div id="game-ui" class="glass-panel hidden">
+                <div class="score-board">
+                    <div class="score-box p1-color">
+                        <span class="label">P1 HITS</span>
+                        <span id="p1-hits-display" class="glow-text">0 / 3</span>
+                    </div>
+                    <div class="score-box text-white">
+                        <span class="label">LEVEL</span>
+                        <span id="level-display" class="glow-text">--</span>
+                    </div>
+                    <div class="score-box p2-color">
+                        <span class="label">P2 HITS</span>
+                        <span id="p2-hits-display" class="glow-text">0 / 3</span>
+                    </div>
+                </div>
+
+                <div id="target-alert" class="target-flash hidden">TARGET UNLOCKED!</div>
+                
+                <div class="controls-hint">
+                    <p class="p1-color">P1: A/D/W | SPACE</p>
+                    <p class="p2-color">P2: ◄/►/▲ | ENTER</p>
+                </div>
+
+                <button id="pause-btn" class="glow-button sm mt-4">|| PAUSE</button>
+            </div>
+
+            <!-- PAUSE MENU -->
+            <div id="pause-menu" class="glass-panel hidden">
+                <h2 class="section-title text-gold">PAUSED</h2>
+                <button id="resume-btn" class="glow-button lg mb-2">Resume</button>
+                <button id="quit-btn" class="glow-button sm">Quit to Menu</button>
+            </div>
+            
+            <!-- WIN SCREEN -->
+            <div id="winner-screen" class="glass-panel hidden">
+                <h2 id="winner-text" class="glow-text">PLAYER WINS!</h2>
+                <button id="restart-btn" class="glow-button lg mt-4">Play Again</button>
+            </div>
+        </div>
+
+        <!-- GAME CANVAS AREA -->
+        <div id="game-container">
+            <canvas id="gameCanvas"></canvas>
+
+            <!-- Mobile Controls -->
+            <div id="mobile-controls" class="hidden">
+                <div class="m-btn-group">
+                    <div id="btn-left" class="m-btn p1-btn">◄</div>
+                    <div id="btn-right" class="m-btn p1-btn">►</div>
+                    <div id="btn-jump" class="m-btn p1-btn">▲</div>
+                    <div id="btn-fire" class="m-btn m-fire p1-fire">FIRE</div>
+                </div>
+                <div class="m-btn-group" id="p2-mobile-controls">
+                    <div id="btn-left-2" class="m-btn p2-btn">◄</div>
+                    <div id="btn-right-2" class="m-btn p2-btn">►</div>
+                    <div id="btn-jump-2" class="m-btn p2-btn">▲</div>
+                    <div id="btn-fire-2" class="m-btn m-fire p2-fire">FIRE</div>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+    <script src="game.js"></script>
+</body>
+</html>

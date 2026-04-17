@@ -260,6 +260,9 @@ canvas {
         overflow-y: auto;
         max-height: 40vh;
     }
+    #side-panel.game-active {
+        display: none !important;
+    }
     .logo-title { font-size: 24px; margin-bottom: 10px; }
     .score-board { padding: 10px; gap: 10px; }
     .score-box span.glow-text { font-size: 18px; }
